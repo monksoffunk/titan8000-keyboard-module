@@ -90,7 +90,7 @@
 
         complete;
 
-        twelve_layout {
+        layout1: layout1 {
             physical-layout = <&titan8000_physical_layout>;
             positions = <
                 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15

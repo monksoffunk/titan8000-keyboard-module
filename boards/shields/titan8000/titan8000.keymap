@@ -9,6 +9,7 @@
 / {
 	keymap {
 		compatible = "zmk,keymap";
+		position-map = <&layout1>;
 
 		DEFAULT_LAYER {
 			label = "Base";
