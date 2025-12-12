@@ -1,2 +1,2 @@
 config SHIELD_TITAN8000
-	def_bool $(shield_list_contains,titan8000)
+	def_bool $(shields_list_contains,titan8000)
