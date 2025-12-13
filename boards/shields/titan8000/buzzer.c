@@ -30,6 +30,9 @@ const note_t warning[] = {
 void buzzer_beep(uint32_t freq_hz, uint32_t duration_ms)
 {
     if (!device_is_ready(buzzer_pwm.dev)) {
+		    LOG_ERR("========================================");
+			LOG_ERR("PWM BUZZER not ready!!");
+		    LOG_ERR("========================================");
         return;
     }
 
