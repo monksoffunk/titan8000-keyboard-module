@@ -7,7 +7,7 @@
 #include <zmk/event_manager.h>
 #include <zmk/events/position_state_changed.h>
 
-LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
+LOG_MODULE_REGISTER(buzzer, CONFIG_ZMK_LOG_LEVEL);
 
 #define BUZZER_NODE DT_CHILD(DT_PATH(buzzers), buzzer)
 static const struct pwm_dt_spec buzzer_pwm = PWM_DT_SPEC_GET(BUZZER_NODE);
@@ -78,6 +78,23 @@ bool buzzer_is_playing(void)
     return (current_melody != NULL);
 }
 
+static int buzzer_init(void)
+{
+    LOG_ERR("========================================");
+    LOG_ERR("BUZZER MODULE INITIALIZED");
+    if (!device_is_ready(buzzer_pwm.dev)) {
+        LOG_ERR("PWM Device NOT READY!");
+        return -ENODEV;
+    }
+    LOG_ERR("PWM Device: %s", buzzer_pwm.dev->name);
+    LOG_ERR("PWM Ready: YES");
+    LOG_ERR("========================================");
+    
+    return 0;
+}
+
+SYS_INIT(buzzer_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
+
 static int buzzer_keypress_listener(const zmk_event_t *eh)
 {
     struct zmk_position_state_changed *ev = as_zmk_position_state_changed(eh);
@@ -87,7 +104,7 @@ static int buzzer_keypress_listener(const zmk_event_t *eh)
 
     // キーが押された時のみ音を鳴らす（離された時は鳴らさない）
     if (ev->state) {
-        LOG_DBG("Key pressed at position %d", ev->position);
+        LOG_ERR("KEY PRESSED at position %d", ev->position);
         buzzer_beep(1000, 50);  // 1kHz, 50ms
     }
 
