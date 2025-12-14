@@ -1,0 +1,8 @@
+# Copyright (c) 2025 The ZMK Contributors
+# SPDX-License-Identifier: MIT
+
+description: Toggle buzzer keypress beep on/off
+
+compatible: "zmk,behavior-buzzer-tog"
+
+include: zero_param.yaml
