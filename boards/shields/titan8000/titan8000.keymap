@@ -13,6 +13,10 @@
 #define L_ALT	&mt LALT LANG2
 #define R_ALT	&mt RALT LANG1
 
+&lt {
+    quick-tap-ms = <200>;
+};
+
 / {
 	keymap {
 		compatible = "zmk,keymap";
