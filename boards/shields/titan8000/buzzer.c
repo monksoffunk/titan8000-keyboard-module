@@ -18,6 +18,8 @@ static uint32_t melody_length = 0;
 static uint32_t current_index = 0;
 static bool melody_loop = false;
 static struct k_timer melody_timer;
+static struct k_timer advertising_beep_timer;
+static bool is_advertising_beep_active = false;
 
 // BLE profile change melody (ascending tones)
 const note_t ble_profile_change[] = {
@@ -47,6 +49,13 @@ const note_t ble_disconnect[] = {
     {NOTE_E6, 100},
     {NOTE_REST, 50},
     {NOTE_C6, 100}
+};
+
+// BLE advertising beep (repeating pip-pip)
+const note_t ble_advertising_beep[] = {
+    {NOTE_G6, 60},
+    {NOTE_REST, 40},
+    {NOTE_G6, 60}
 };
 
 const note_t success[] = {
@@ -124,6 +133,37 @@ bool buzzer_is_playing(void)
     return (current_melody != NULL);
 }
 
+static void advertising_beep_callback(struct k_timer *timer)
+{
+    if (!zmk_ble_active_profile_is_connected()) {
+        // Not connected, play advertising beep
+        buzzer_play_melody(ble_advertising_beep, sizeof(ble_advertising_beep) / sizeof(note_t), false);
+    } else {
+        // Connected, stop advertising beep
+        is_advertising_beep_active = false;
+        k_timer_stop(&advertising_beep_timer);
+    }
+}
+
+static void start_advertising_beep(void)
+{
+    if (!is_advertising_beep_active) {
+        is_advertising_beep_active = true;
+        k_timer_init(&advertising_beep_timer, advertising_beep_callback, NULL);
+        k_timer_start(&advertising_beep_timer, K_SECONDS(3), K_SECONDS(3));
+        LOG_ERR("Advertising beep started");
+    }
+}
+
+static void stop_advertising_beep(void)
+{
+    if (is_advertising_beep_active) {
+        is_advertising_beep_active = false;
+        k_timer_stop(&advertising_beep_timer);
+        LOG_ERR("Advertising beep stopped");
+    }
+}
+
 static int buzzer_init(void)
 {
     LOG_ERR("========================================");
@@ -174,9 +214,18 @@ static int buzzer_ble_profile_listener(const zmk_event_t *eh)
     if (zmk_ble_profile_is_open(ev->index)) {
         LOG_ERR("Profile is open (cleared)");
         buzzer_play_melody(ble_bond_clear, sizeof(ble_bond_clear) / sizeof(note_t), false);
+        // Start advertising beep after clearing
+        start_advertising_beep();
     } else {
         LOG_ERR("Profile switched");
         buzzer_play_melody(ble_profile_change, sizeof(ble_profile_change) / sizeof(note_t), false);
+        
+        // Check if connected, if not start advertising beep
+        if (!zmk_ble_active_profile_is_connected()) {
+            start_advertising_beep();
+        } else {
+            stop_advertising_beep();
+        }
     }
 
     return ZMK_EV_EVENT_BUBBLE;
