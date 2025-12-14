@@ -6,6 +6,8 @@
 
 #include <zmk/event_manager.h>
 #include <zmk/events/position_state_changed.h>
+#include <zmk/events/ble_active_profile_changed.h>
+#include <zmk/ble.h>
 
 LOG_MODULE_REGISTER(buzzer, CONFIG_ZMK_LOG_LEVEL);
 
@@ -16,6 +18,36 @@ static uint32_t melody_length = 0;
 static uint32_t current_index = 0;
 static bool melody_loop = false;
 static struct k_timer melody_timer;
+
+// BLE profile change melody (ascending tones)
+const note_t ble_profile_change[] = {
+    {NOTE_C6, 80},
+    {NOTE_E6, 80},
+    {NOTE_G6, 120}
+};
+
+// BLE bond clear melody (descending tones)
+const note_t ble_bond_clear[] = {
+    {NOTE_G6, 80},
+    {NOTE_E6, 80},
+    {NOTE_C6, 120}
+};
+
+// BLE all bonds clear melody (warning sound)
+const note_t ble_all_bonds_clear[] = {
+    {NOTE_A6, 100},
+    {NOTE_REST, 50},
+    {NOTE_A6, 100},
+    {NOTE_REST, 50},
+    {NOTE_A6, 150}
+};
+
+// BLE disconnect melody (short beep)
+const note_t ble_disconnect[] = {
+    {NOTE_E6, 100},
+    {NOTE_REST, 50},
+    {NOTE_C6, 100}
+};
 
 const note_t success[] = {
     {NOTE_E6, 80}, {NOTE_B6, 80}, {NOTE_E7, 400},
@@ -128,3 +160,27 @@ static int buzzer_keypress_listener(const zmk_event_t *eh)
 
 ZMK_LISTENER(buzzer, buzzer_keypress_listener);
 ZMK_SUBSCRIPTION(buzzer, zmk_position_state_changed);
+
+static int buzzer_ble_profile_listener(const zmk_event_t *eh)
+{
+    struct zmk_ble_active_profile_changed *ev = as_zmk_ble_active_profile_changed(eh);
+    if (ev == NULL) {
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+
+    LOG_ERR("BLE Profile changed to: %d", ev->index);
+    
+    // Check if the profile is open (no bond) - likely a clear operation
+    if (zmk_ble_profile_is_open(ev->index)) {
+        LOG_ERR("Profile is open (cleared)");
+        buzzer_play_melody(ble_bond_clear, sizeof(ble_bond_clear) / sizeof(note_t), false);
+    } else {
+        LOG_ERR("Profile switched");
+        buzzer_play_melody(ble_profile_change, sizeof(ble_profile_change) / sizeof(note_t), false);
+    }
+
+    return ZMK_EV_EVENT_BUBBLE;
+}
+
+ZMK_LISTENER(buzzer_ble, buzzer_ble_profile_listener);
+ZMK_SUBSCRIPTION(buzzer_ble, zmk_ble_active_profile_changed);
