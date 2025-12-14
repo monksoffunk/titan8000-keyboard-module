@@ -137,7 +137,7 @@ bool buzzer_is_playing(void)
 void buzzer_toggle_keypress_beep(void)
 {
     keypress_beep_enabled = !keypress_beep_enabled;
-    LOG_ERR("Keypress beep %s", keypress_beep_enabled ? "ENABLED" : "DISABLED");
+    LOG_INF("Keypress beep %s", keypress_beep_enabled ? "ENABLED" : "DISABLED");
     
     // Play confirmation sound
     if (keypress_beep_enabled) {
