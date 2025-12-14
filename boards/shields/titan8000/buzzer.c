@@ -20,7 +20,7 @@ static bool melody_loop = false;
 static struct k_timer melody_timer;
 static struct k_timer advertising_beep_timer;
 static bool is_advertising_beep_active = false;
-static bool keypress_beep_enabled = true;
+static bool keypress_beep_enabled = false;
 
 // BLE profile change melody (ascending tones)
 const note_t ble_profile_change[] = {
