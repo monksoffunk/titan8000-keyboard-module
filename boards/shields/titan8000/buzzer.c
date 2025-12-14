@@ -227,16 +227,16 @@ static int buzzer_ble_profile_listener(const zmk_event_t *eh)
         return ZMK_EV_EVENT_BUBBLE;
     }
 
-    LOG_ERR("BLE Profile changed to: %d", ev->index);
+    LOG_INF("BLE Profile changed to: %d", ev->index);
     
     // Check if the profile is open (no bond) - likely a clear operation
     if (zmk_ble_profile_is_open(ev->index)) {
-        LOG_ERR("Profile is open (cleared)");
+        LOG_INF("Profile is open (cleared)");
         buzzer_play_melody(ble_bond_clear, sizeof(ble_bond_clear) / sizeof(note_t), false);
         // Start advertising beep after clearing
         start_advertising_beep();
     } else {
-        LOG_ERR("Profile switched");
+        LOG_INF("Profile switched");
         buzzer_play_melody(ble_profile_change, sizeof(ble_profile_change) / sizeof(note_t), false);
         
         // Check if connected, if not start advertising beep
