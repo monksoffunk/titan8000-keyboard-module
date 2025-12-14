@@ -20,6 +20,7 @@ static bool melody_loop = false;
 static struct k_timer melody_timer;
 static struct k_timer advertising_beep_timer;
 static bool is_advertising_beep_active = false;
+static bool keypress_beep_enabled = true;
 
 // BLE profile change melody (ascending tones)
 const note_t ble_profile_change[] = {
@@ -133,6 +134,24 @@ bool buzzer_is_playing(void)
     return (current_melody != NULL);
 }
 
+void buzzer_toggle_keypress_beep(void)
+{
+    keypress_beep_enabled = !keypress_beep_enabled;
+    LOG_ERR("Keypress beep %s", keypress_beep_enabled ? "ENABLED" : "DISABLED");
+    
+    // Play confirmation sound
+    if (keypress_beep_enabled) {
+        buzzer_beep(NOTE_C6, 100);
+    } else {
+        buzzer_beep(NOTE_E6, 100);
+    }
+}
+
+bool buzzer_is_keypress_beep_enabled(void)
+{
+    return keypress_beep_enabled;
+}
+
 static void advertising_beep_callback(struct k_timer *timer)
 {
     if (!zmk_ble_active_profile_is_connected()) {
@@ -190,7 +209,7 @@ static int buzzer_keypress_listener(const zmk_event_t *eh)
     }
 
     // キーが押された時のみ音を鳴らす（離された時は鳴らさない）
-    if (ev->state) {
+    if (ev->state && keypress_beep_enabled) {
         LOG_ERR("KEY PRESSED at position %d", ev->position);
         buzzer_beep(4000, 50);  // 4kHz, 50ms
     }
