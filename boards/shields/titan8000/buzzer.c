@@ -141,9 +141,11 @@ void buzzer_toggle_keypress_beep(void)
     
     // Play confirmation sound
     if (keypress_beep_enabled) {
-        buzzer_beep(NOTE_C6, 100);
+        note_t melody[] = { {NOTE_C6, 100} };
+        buzzer_play_melody(melody, 1, false);
     } else {
-        buzzer_beep(NOTE_E6, 100);
+        note_t melody[] = { {NOTE_E6, 100} };
+        buzzer_play_melody(melody, 1, false);
     }
 }
 
