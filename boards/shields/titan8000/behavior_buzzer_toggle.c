@@ -23,8 +23,10 @@ static int on_keymap_binding_pressed(struct zmk_behavior_binding *binding,
                                      struct zmk_behavior_binding_event event) {
 #ifdef CONFIG_TITAN8000_BUZZER
     buzzer_toggle_keypress_beep();
-#endif
     return ZMK_BEHAVIOR_OPAQUE;
+#else
+    return ZMK_BEHAVIOR_TRANSPARENT;
+#endif
 }
 
 static int on_keymap_binding_released(struct zmk_behavior_binding *binding,
