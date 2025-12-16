@@ -27,7 +27,7 @@
     //    wakeup-source;
 
     //    interrupt-gpios = <&xiao_d 10 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-
+        debounce-scan-period-ms = <5>;
         status = "okay";
         gpios
           = <&xiao_d 0 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
