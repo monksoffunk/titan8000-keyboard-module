@@ -8,6 +8,7 @@
 // RP2040 default configuration enables UART0, SPI0, and I2C1
 // which use pins P0-P7, conflicting with the charlieplex matrix
 
+
 &uart0 {
     status = "disabled";
 };
@@ -18,4 +19,26 @@
 
 &i2c1 {
     status = "disabled";
+};
+
+/ {
+    kscan0: kscan {
+        compatible = "zmk,kscan-gpio-charlieplex";
+        wakeup-source;
+
+        interrupt-gpios = <&xiao_d 10 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+
+        status = "okay";
+        gpios
+          = <&xiao_d 0 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+          , <&xiao_d 1 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+          , <&xiao_d 2 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+          , <&xiao_d 3 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+          , <&xiao_d 4 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+          , <&xiao_d 5 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+          , <&xiao_d 6 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+          , <&xiao_d 7 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+          , <&xiao_d 8 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+          , <&xiao_d 9 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+    };
 };
