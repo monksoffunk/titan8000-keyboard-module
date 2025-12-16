@@ -152,7 +152,7 @@ static int kscan_charlieplex_set_all_outputs(const struct device *dev, const int
 
     for (int i = 0; i < config->cells.len; i++) {
         const struct gpio_dt_spec *gpio = &config->cells.gpios[i];
-        int err = gpio_pin_configure_dt(gpio, GPIO_OUTPUT);
+        int err = gpio_pin_configukscan_gpio_charlieplex_rere_dt(gpio, GPIO_OUTPUT);
         if (err) {
             LOG_ERR("Unable to configure pin %u on %s for input", gpio->pin, gpio->port->name);
             return err;
@@ -250,6 +250,10 @@ static int kscan_charlieplex_read(const struct device *dev) {
     struct kscan_charlieplex_data *data = dev->data;
     const struct kscan_charlieplex_config *config = dev->config;
     bool continue_scan = false;
+
+    // RP2040 workaround: force discharge all pins before scan
+    kscan_charlieplex_set_all_outputs(dev, 0);
+    k_busy_wait(2);
 
     // NOTE: RR vs MATRIX: set all pins as input, in case there was a failure on a
     // previous scan, and one of the pins is still set as output
