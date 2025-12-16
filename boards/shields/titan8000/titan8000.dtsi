@@ -8,6 +8,11 @@
 		
 		interrupt-gpios = <&xiao_d 10 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN) >;
 
+		debounce-press-ms = <50>;
+		debounce-release-ms = <50>;
+		debounce-scan-period-ms = <10>;
+		poll-period-ms = <10>;
+
 		status = "okay";
         gpios
           = <&xiao_d 0 GPIO_ACTIVE_HIGH>
