@@ -39,8 +39,20 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #define INST_DISCHARGE_US(n) DT_INST_PROP_OR(n, discharge_before_inputs_us, 0)
 
-#define KSCAN_GPIO_CFG_INIT(idx, inst_idx)                                                         \
+/*
+ * DT_INST_FOREACH_PROP_ELEM_SEP() callback signature differs across Zephyr versions.
+ * Some pass (idx, inst), others pass (inst, prop, idx). Support both.
+ */
+#define _KSCAN_GPIO_CFG_INIT_2(idx, inst_idx)                                                      \
     GPIO_DT_SPEC_GET_BY_IDX(DT_DRV_INST(inst_idx), gpios, idx)
+
+#define _KSCAN_GPIO_CFG_INIT_3(inst_idx, prop, idx)                                                \
+    GPIO_DT_SPEC_GET_BY_IDX(DT_DRV_INST(inst_idx), prop, idx)
+
+#define _KSCAN_GPIO_CFG_INIT_SELECT(_1, _2, _3, NAME, ...) NAME
+#define KSCAN_GPIO_CFG_INIT(...)                                                                    \
+    _KSCAN_GPIO_CFG_INIT_SELECT(__VA_ARGS__, _KSCAN_GPIO_CFG_INIT_3, _KSCAN_GPIO_CFG_INIT_2)(       \
+        __VA_ARGS__)
 
 #define INST_INTR_DEFINED(n) DT_INST_NODE_HAS_PROP(n, interrupt_gpios)
 
