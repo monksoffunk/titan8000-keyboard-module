@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2025 monksoffunk
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 #pragma once
 
 #define NOTE_C5 523

@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2025 monksoffunk
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/pwm.h>
 #include <zephyr/device.h>
