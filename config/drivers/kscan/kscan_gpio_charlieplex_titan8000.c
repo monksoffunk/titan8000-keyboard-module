@@ -87,6 +87,16 @@ struct kscan_charlieplex_config {
     int32_t discharge_before_inputs_us;
 };
 
+static bool any_debounce_active(const struct zmk_debounce_state *states, const size_t len) {
+    for (size_t i = 0; i < len; i++) {
+        if (zmk_debounce_is_active(&states[i])) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 /**
  * Get the index into a matrix state array from a row and column.
  * There are effectively (n) cols and (n-1) rows, but we use the full col x row space
@@ -229,7 +239,7 @@ static void kscan_charlieplex_read_continue(const struct device *dev) {
 
     int32_t next_delay_ms = config->poll_period_ms;
 
-    if (zmk_debounce_is_active(data->charlieplex_state, config->cells.len * config->cells.len)) {
+    if (any_debounce_active(data->charlieplex_state, config->cells.len * config->cells.len)) {
         next_delay_ms = config->debounce_scan_period_ms;
     }
 
@@ -241,7 +251,7 @@ static void kscan_charlieplex_read_end(const struct device *dev) {
     struct kscan_charlieplex_data *data = dev->data;
     const struct kscan_charlieplex_config *config = dev->config;
 
-    if (zmk_debounce_is_active(data->charlieplex_state, config->cells.len * config->cells.len)) {
+    if (any_debounce_active(data->charlieplex_state, config->cells.len * config->cells.len)) {
         kscan_charlieplex_read_continue(dev);
         return;
     }
@@ -307,10 +317,16 @@ static int kscan_charlieplex_read(const struct device *dev) {
             }
 
             const int state_idx = state_index(config, row, col);
-            if (zmk_debounce_update(data->charlieplex_state, state_idx, key_state)) {
-                data->callback(dev, row, col, key_state);
-                continue_scan = true;
+
+            struct zmk_debounce_state *state = &data->charlieplex_state[state_idx];
+            zmk_debounce_update(state, key_state, config->debounce_scan_period_ms,
+                                &config->debounce_config);
+
+            if (zmk_debounce_get_changed(state)) {
+                data->callback(dev, row, col, zmk_debounce_is_pressed(state));
             }
+
+            continue_scan = continue_scan || zmk_debounce_is_active(state);
         }
 
         err = gpio_pin_set_dt(out_gpio, 0);
