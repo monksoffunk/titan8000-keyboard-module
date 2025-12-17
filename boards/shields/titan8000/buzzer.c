@@ -15,25 +15,28 @@ LOG_MODULE_REGISTER(buzzer, CONFIG_ZMK_LOG_LEVEL);
 
 #define BUZZER_NODE DT_CHILD(DT_PATH(buzzers), buzzer)
 
-#define BUZZER_HAS_PWMS (DT_NODE_EXISTS(BUZZER_NODE) && DT_NODE_HAS_PROP(BUZZER_NODE, pwms))
+#define BUZZER_HAS_PWMS DT_NODE_HAS_PROP(BUZZER_NODE, pwms)
 
-#define BUZZER_PWM_SPEC_GET(node_id)                                                               \
-    {                                                                                              \
-        .dev = DEVICE_DT_GET_OR_NULL(DT_PWMS_CTLR_BY_IDX(node_id, 0)),                              \
-        .channel = DT_PWMS_CHANNEL_BY_IDX(node_id, 0),                                              \
-        .period = DT_PWMS_PERIOD_BY_IDX(node_id, 0),                                                \
-        .flags = DT_PWMS_FLAGS_BY_IDX(node_id, 0),                                                  \
-    }
+/*
+ * DT_PWMS_* macros require the 'pwms' property to exist.
+ * Use COND_CODE_1() to avoid expanding those macros when absent.
+ */
+#define BUZZER_PWM_CTLR_NODE COND_CODE_1(BUZZER_HAS_PWMS, (DT_PWMS_CTLR_BY_IDX(BUZZER_NODE, 0)), (DT_INVALID_NODE))
+#define BUZZER_PWM_CTLR_OK DT_NODE_HAS_STATUS(BUZZER_PWM_CTLR_NODE, okay)
+#define BUZZER_HAS_PWM_DEV UTIL_AND(BUZZER_HAS_PWMS, BUZZER_PWM_CTLR_OK)
+
+#define BUZZER_PWM_DEV COND_CODE_1(BUZZER_HAS_PWM_DEV, (DEVICE_DT_GET(BUZZER_PWM_CTLR_NODE)), (NULL))
+#define BUZZER_PWM_CHANNEL COND_CODE_1(BUZZER_HAS_PWM_DEV, (DT_PWMS_CHANNEL_BY_IDX(BUZZER_NODE, 0)), (0))
+#define BUZZER_PWM_PERIOD COND_CODE_1(BUZZER_HAS_PWM_DEV, (DT_PWMS_PERIOD_BY_IDX(BUZZER_NODE, 0)), (0))
+#define BUZZER_PWM_FLAGS COND_CODE_1(BUZZER_HAS_PWM_DEV, (DT_PWMS_FLAGS_BY_IDX(BUZZER_NODE, 0)), (0))
 
 // Buzzer implementation (only compiled when CONFIG_TITAN8000_BUZZER is enabled)
-static const struct pwm_dt_spec buzzer_pwm =
-    COND_CODE_1(BUZZER_HAS_PWMS, (BUZZER_PWM_SPEC_GET(BUZZER_NODE)),
-                ({
-                    .dev = NULL,
-                    .channel = 0,
-                    .period = 0,
-                    .flags = 0,
-                }));
+static const struct pwm_dt_spec buzzer_pwm = {
+    .dev = BUZZER_PWM_DEV,
+    .channel = BUZZER_PWM_CHANNEL,
+    .period = BUZZER_PWM_PERIOD,
+    .flags = BUZZER_PWM_FLAGS,
+};
 static const note_t *current_melody = NULL;
 static uint32_t melody_length = 0;
 static uint32_t current_index = 0;
