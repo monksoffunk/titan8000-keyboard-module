@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "seeeduino_xiao_rp2040-kscan.dtsi"
+
 // Disable peripherals that conflict with keyboard matrix pins (D0-D10)
 // RP2040 default configuration enables UART0, SPI0, and I2C1
 // which use pins P0-P7, conflicting with the charlieplex matrix
@@ -19,8 +21,4 @@
 
 &i2c1 {
     status = "disabled";
-};
-
-&kscan0 {
-    discharge-before-inputs-us = <100>;
 };

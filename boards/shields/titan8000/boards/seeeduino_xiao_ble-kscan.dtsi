@@ -1,0 +1,30 @@
+/*
+ * Copyright (c) 2025 The ZMK Contributors
+ * Copyright (c) 2025 monksoffunk
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+/*
+ * Xiao BLE uses the Titan8000 custom kscan driver.
+ *
+ * Matches the original main-branch electrical polarity:
+ * - ACTIVE_HIGH sensing
+ * - interrupt line on D10 (active-high with pull-down)
+ */
+&kscan0 {
+        compatible = "titan8000,kscan-gpio-charlieplex";
+        interrupt-gpios = <&xiao_d 10 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+
+        gpios
+            = <&xiao_d 0 GPIO_ACTIVE_HIGH>
+            , <&xiao_d 1 GPIO_ACTIVE_HIGH>
+            , <&xiao_d 2 GPIO_ACTIVE_HIGH>
+            , <&xiao_d 3 GPIO_ACTIVE_HIGH>
+            , <&xiao_d 4 GPIO_ACTIVE_HIGH>
+            , <&xiao_d 5 GPIO_ACTIVE_HIGH>
+            , <&xiao_d 6 GPIO_ACTIVE_HIGH>
+            , <&xiao_d 7 GPIO_ACTIVE_HIGH>
+            , <&xiao_d 8 GPIO_ACTIVE_HIGH>
+            , <&xiao_d 9 GPIO_ACTIVE_HIGH>;
+};

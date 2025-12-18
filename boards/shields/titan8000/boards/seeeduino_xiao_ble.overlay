@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "seeeduino_xiao_ble-kscan.dtsi"
+
 // Buzzer configuration for Xiao BLE plus
 // RP2040 does not have enough pins for buzzer
 

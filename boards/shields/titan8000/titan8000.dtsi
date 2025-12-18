@@ -3,26 +3,15 @@
 
 / {
 	kscan0: kscan {
-		compatible = "titan8000,kscan-gpio-charlieplex";
 		wakeup-source;
-		
-		debounce-press-ms = <50>;
-		debounce-release-ms = <50>;
-		debounce-scan-period-ms = <10>;
-		poll-period-ms = <10>;
-
 		status = "okay";
-        gpios
-	      = <&xiao_d 0 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
-		  , <&xiao_d 1 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
-		  , <&xiao_d 2 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
-		  , <&xiao_d 3 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
-		  , <&xiao_d 4 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
-		  , <&xiao_d 5 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
-		  , <&xiao_d 6 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
-		  , <&xiao_d 7 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
-		  , <&xiao_d 8 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
-		  , <&xiao_d 9 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+
+		/*
+		 * Board-specific overlays/dtsi provide:
+		 * - compatible
+		 * - gpios / interrupt-gpios
+		 * - debounce/poll tuning
+		 */
 	};
 
 	default_transform: keymap_transform_0 {
