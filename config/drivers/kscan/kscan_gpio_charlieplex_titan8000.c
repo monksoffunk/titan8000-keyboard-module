@@ -213,11 +213,12 @@ static int kscan_charlieplex_interrupt_enable(const struct device *dev) {
     }
 
     /*
-     * While waiting for interrupts, drive all matrix lines to physical HIGH.
-     * For ACTIVE_LOW pins, gpio_pin_set_dt(..., 0) drives the line HIGH.
+     * While waiting for interrupts, keep all matrix lines at a defined HIGH level
+     * using input biasing (pull-ups). This avoids forcing matrix outputs while idle,
+     * which can increase interference/ghosting in some charlieplex designs.
      * This matches the "D0-D9 high, IRQ on D10 active high" wiring model.
      */
-    return kscan_charlieplex_set_all_outputs(dev, 0);
+    return kscan_charlieplex_set_all_as_input(dev);
 }
 
 static void kscan_charlieplex_irq_callback(const struct device *port, struct gpio_callback *cb,
