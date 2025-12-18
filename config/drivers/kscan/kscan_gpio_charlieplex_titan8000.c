@@ -483,6 +483,16 @@ static int kscan_charlieplex_pm_action(const struct device *dev, enum pm_device_
     case PM_DEVICE_ACTION_RESUME:
         kscan_charlieplex_setup_pins(dev);
 
+        /*
+         * When entering soft off, ZMK resumes the devices listed in `soft_off_wakers`
+         * and then quickly calls `sys_poweroff()`. In that path we must configure the
+         * wake interrupt immediately (without starting a scan cycle) so the device can
+         * wake the system from soft off.
+         */
+        if (pm_device_wakeup_is_enabled(dev)) {
+            return kscan_charlieplex_interrupt_enable(dev);
+        }
+
         return kscan_charlieplex_enable(dev);
     default:
         return -ENOTSUP;
