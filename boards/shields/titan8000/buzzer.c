@@ -189,7 +189,7 @@ void buzzer_toggle_keypress_beep(void)
 
 void buzzer_pitch_fall() 
 {
-    buzzer_fall_quadratic_hz(&buzzer_pwm, 4000, 1500, 200);
+    buzzer_fall_quadratic_hz(&buzzer_pwm, 4000, 3000, 50);
 }
 
 bool buzzer_is_keypress_beep_enabled(void)
