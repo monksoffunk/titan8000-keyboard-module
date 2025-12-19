@@ -82,9 +82,9 @@ const note_t ble_disconnect[] = {
 
 // BLE advertising beep (repeating pip-pip)
 const note_t ble_advertising_beep[] = {
-    {NOTE_G6, 60},
-    {NOTE_REST, 40},
-    {NOTE_G6, 60}
+    {NOTE_G6, 100},
+    {NOTE_REST, 50},
+    {NOTE_G6, 150}
 };
 
 const note_t success[] = {
