@@ -17,7 +17,7 @@
 
 LOG_MODULE_REGISTER(buzzer, CONFIG_ZMK_LOG_LEVEL);
 
-#ifdef CONFIG_TITAN8000_BUZZER
+#ifdef CONFIG_TITAN8000_BUZZE
 
 #define BUZZER_NODE DT_CHILD(DT_PATH(buzzers), buzzer)
 // Buzzer implementation (only compiled when CONFIG_TITAN8000_BUZZER is enabled)
@@ -299,7 +299,7 @@ static void advertising_beep_callback(struct k_timer *timer)
 {
     if (!zmk_ble_active_profile_is_connected()) {
         // Not connected, play advertising beep
-        buzzer_play_melody_ex(ble_advertising_beep, sizeof(ble_advertising_beep) / sizeof(note_t), false, buzzer_void_ad);
+        buzzer_play_melody_ex(ble_advertising_beep, sizeof(ble_advertising_beep) / sizeof(note_t), false, buzzer_voice_ad);
     } else {
         // Connected, stop advertising beep
         is_advertising_beep_active = false;
