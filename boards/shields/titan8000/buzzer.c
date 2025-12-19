@@ -462,7 +462,7 @@ static void advertising_beep_callback(struct k_timer *timer)
     }
 }
 
-static void start_advertising_beep(void)
+static void start_advertising_beep(void)bbbbb
 {
     if (!is_advertising_beep_active) {
         is_advertising_beep_active = true;
@@ -504,7 +504,7 @@ static int buzzer_init(void)
     k_work_init_delayable(&melody_work, melody_work_handler);
     k_timer_init(&advertising_beep_timer, advertising_beep_callback, NULL);
 
-    buzzer_play_melody(success, ARRAY_SIZE(success), false);
+    buzzer_play_melody_ex(success, ARRAY_SIZE(success), false, buzzer_voice_soft);
 
     return 0;
 }
