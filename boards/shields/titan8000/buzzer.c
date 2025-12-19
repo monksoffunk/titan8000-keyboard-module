@@ -462,7 +462,7 @@ static void advertising_beep_callback(struct k_timer *timer)
     }
 }
 
-static void start_advertising_beep(void)bbbbb
+static void start_advertising_beep(void)
 {
     if (!is_advertising_beep_active) {
         is_advertising_beep_active = true;
