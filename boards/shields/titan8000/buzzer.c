@@ -38,6 +38,7 @@ static struct k_work_delayable melody_work;
 static struct buzzer_request buzzer_req;
 static atomic_t buzzer_busy;
 static atomic_t melody_active;
+static atomic_t buzzer_abort;
 
 K_THREAD_STACK_DEFINE(buzzer_stack, 1024);
 static struct k_work_q buzzer_work_q;
@@ -188,6 +189,7 @@ static void buzzer_beep_ad(
     }
 
     for (uint32_t i = 0; i <= a_steps; i++) {
+        if (atomic_get(&buzzer_abort)) return;
         uint32_t pulse = (max_pulse * i) / a_steps;
         pwm_set_dt(pwm, period_ns, pulse);
         k_sleep(K_MSEC(attack_step_ms));
@@ -201,6 +203,7 @@ static void buzzer_beep_ad(
     }
 
     for (uint32_t i = 0; i < ARRAY_SIZE(decay_lut); i++) {
+        if (atomic_get(&buzzer_abort)) return;
         uint32_t pulse = (max_pulse * decay_lut[i]) / 255;
         pwm_set_dt(pwm, period_ns, pulse);
         k_sleep(K_MSEC(decay_step_ms));
@@ -275,10 +278,11 @@ static bool buzzer_request(
     if (atomic_get(&melody_active))
         return false;
 
-    /* Try to acquire buzzer */
-    if (!atomic_cas(&buzzer_busy, 0, 1)) {
-        return false; /* busy */
-    }
+    atomic_set(&buzzer_abort, 1);
+    pwm_set_dt(&buzzer_pwm,0, 0);
+
+    atomic_set(&buzzer_busy, 1);
+    atomic_clear(&buzzer_abort);
 
     buzzer_req.voice       = voice;
     buzzer_req.freq_hz     = freq_hz;
@@ -287,7 +291,7 @@ static bool buzzer_request(
     k_work_submit_to_queue(&buzzer_work_q, &buzzer_work);
     return true;
 }
-
+/*
 static void melody_timer_callback(struct k_timer *timer)
 {
     if (current_index >= melody_length) {
@@ -308,9 +312,9 @@ static void melody_timer_callback(struct k_timer *timer)
         pwm_set_dt(&buzzer_pwm, period_ns, period_ns / 2); // plain beep
     }
 
-    /* schedule next note after duration */
     k_timer_start(&melody_timer, K_MSEC(note->duration), K_NO_WAIT);
 }
+*/
 
 void buzzer_play_melody_ex(
     const note_t *melody,
