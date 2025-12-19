@@ -31,6 +31,13 @@ static struct k_timer advertising_beep_timer;
 static bool is_advertising_beep_active = false;
 static bool keypress_beep_enabled = false;
 
+/* 0..255 scale (approx exponential decay) */
+static const uint8_t decay_lut[] = {
+    255, 220, 190, 165, 142, 122, 104,  88,
+     74,  62,  52,  43,  35,  28,  22,  17,
+     13,   9,   6,   4,   2,   1,   0
+};
+
 // BLE profile change melody (ascending tones)
 const note_t ble_profile_change[] = {
     {NOTE_C6, 80},
@@ -159,30 +166,33 @@ static void buzzer_beep_ad(
     uint32_t attack_ms,
     uint32_t decay_ms
 ) {
-    const uint32_t step_ms = 2;
-
     const uint32_t period_ns = 1000000000UL / freq_hz;
     const uint32_t max_pulse = period_ns / 2;   // 50% duty
 
-    /* ---------- Attack ---------- */
-    uint32_t attack_steps = attack_ms / step_ms;
-    if (attack_steps == 0) attack_steps = 1;
-
-    for (uint32_t i = 0; i <= attack_steps; i++) {
-        uint32_t pulse = (max_pulse * i) / attack_steps;
-        pwm_set_dt(pwm, period_ns, pulse);
-        k_sleep(K_MSEC(step_ms));
+    /* ---------- Attack (linear) ---------- */
+    const uint32_t attack_step_ms = 2;
+    uint32_t a_steps = attack_ms / attack_step_ms;
+    if (a_steps == 0) {
+        a_steps = 1;
     }
 
-    /* ---------- Decay ---------- */
-    uint32_t decay_steps = decay_ms / step_ms;
-    for (uint32_t i = 0; i <= decay_steps; i++) {
-        float t = (float)i / (float)decay_steps;   // 0..1
-        float factor = expf(-4.0f * t);             // 4.0 decay speed
-
-        uint32_t pulse = (uint32_t)(max_pulse * factor);
+    for (uint32_t i = 0; i <= a_steps; i++) {
+        uint32_t pulse = (max_pulse * i) / a_steps;
         pwm_set_dt(pwm, period_ns, pulse);
-        k_sleep(K_MSEC(step_ms));
+        k_sleep(K_MSEC(attack_step_ms));
+    }
+
+    /* ---------- Decay (LUT-based) ---------- */
+    /* Spread LUT over requested decay_ms */
+    uint32_t decay_step_ms = decay_ms / ARRAY_SIZE(decay_lut);
+    if (decay_step_ms == 0) {
+        decay_step_ms = 1;
+    }
+
+    for (uint32_t i = 0; i < ARRAY_SIZE(decay_lut); i++) {
+        uint32_t pulse = (max_pulse * decay_lut[i]) / 255;
+        pwm_set_dt(pwm, period_ns, pulse);
+        k_sleep(K_MSEC(decay_step_ms));
     }
 
     /* Stop */
