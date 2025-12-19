@@ -50,18 +50,17 @@ static const uint8_t decay_lut[] = {
      13,   9,   6,   4,   2,   1,   0
 };
 
-// BLE profile change melody (ascending tones)
+// BLE profile change melody (descending tones)
 const note_t ble_profile_change[] = {
-    {NOTE_C7, 140},
-    {NOTE_E7, 100},
-    {NOTE_G7, 140}
+    {NOTE_G7, 140},
+    {NOTE_E7, 140},
+    {NOTE_C7, 140}
 };
 
-// BLE bond clear melody (descending tones)
+// BLE bond clear melody (ascending tones)
 const note_t ble_bond_clear[] = {
-    {NOTE_G7, 140},
-    {NOTE_E7, 100},
-    {NOTE_C7, 140}
+    {NOTE_C7, 140},
+    {NOTE_G7, 140}
 };
 
 // BLE all bonds clear melody (warning sound)
