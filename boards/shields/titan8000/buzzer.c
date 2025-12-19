@@ -226,29 +226,6 @@ static void melody_timer_callback(struct k_timer *timer)
 
     if (note->freq == NOTE_REST) {
         pwm_set_dt(&buzzer_pwm, 0, 0);
-    } else {
-        uint32_t period_ns = 1000000000UL / note->freq;
-        pwm_set_dt(&buzzer_pwm, period_ns, period_ns / 2);
-    }
-
-    k_timer_start(&melody_timer, K_MSEC(note->duration), K_NO_WAIT);
-}
-
-static void melody_timer_callback(struct k_timer *timer)
-{
-    if (current_index >= melody_length) {
-        if (melody_loop) {
-            current_index = 0;
-        } else {
-            buzzer_stop_melody();
-            return;
-        }
-    }
-
-    const note_t *note = &current_melody[current_index++];
-
-    if (note->freq == NOTE_REST) {
-        pwm_set_dt(&buzzer_pwm, 0, 0);
         k_timer_start(&melody_timer, K_MSEC(note->duration), K_NO_WAIT);
         return;
     }
