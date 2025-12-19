@@ -34,12 +34,13 @@ static bool keypress_beep_enabled = false;
 static struct k_work_delayable melody_work;
 static bool melody_work_running = false;
 static struct k_work buzzer_work;
+static struct k_work_delayable melody_work;
 static struct buzzer_request buzzer_req;
-static atomic_t buzzer_busy = false;
+static atomic_t buzzer_busy;
+static atomic_t melody_active;
 
 K_THREAD_STACK_DEFINE(buzzer_stack, 1024);
 static struct k_work_q buzzer_work_q;
-static struct k_work buzzer_work;
 
 /* 0..255 scale (approx exponential decay) */
 static const uint8_t decay_lut[] = {
@@ -233,12 +234,47 @@ static void buzzer_work_handler(struct k_work *work)
     atomic_clear(&buzzer_busy);
 }
 
+static void melody_work_handler(struct k_work *work)
+{
+    if (!current_melody || melody_length == 0) {
+        atomic_clear(&melody_active);
+        return;
+    }
+
+    while (current_melody) {
+        if (current_index => melody_length) {
+            if (melody_loop) {
+                current_index = 0;
+            } else {
+                break;
+            }
+        }
+
+        const note_t *note = &current_melody[current_index++];
+
+        if (node->freq == NOTE_REST) {
+            pwm_set_dt(&buzzer_pwm, 0, 0);
+            k_msleep(note->duration);
+            continue;
+        }
+
+        current_voice(&buzzer_pwm, note->freq, note->duration);
+    }
+
+    pwm_set_dt(&buzzer_pwm, 0, 0);
+    atomic_clear(&melody_active);
+    current_melody = NULL;
+}
+
 static bool buzzer_request(
     buzzer_voice_fn_t voice,
     uint32_t freq_hz,
     uint32_t duration_ms
 )
 {
+    if (atomic_get(&melody_active))
+        return false;
+
     /* Try to acquire buzzer */
     if (!atomic_cas(&buzzer_busy, 0, 1)) {
         return false; /* busy */
@@ -291,7 +327,8 @@ void buzzer_play_melody_ex(
     melody_loop = loop;
     current_voice = voice ? voice : buzzer_voice_plain;
 
-    k_timer_start(&melody_timer, K_NO_WAIT, K_NO_WAIT);
+    atomic_set(&melody_active, 1);
+    k_work_schedule_for_queue(&buzzer_work_q, &melody_work, K_NO_WAIT);
 }
 
 void buzzer_play_melody(const note_t *melody, uint32_t length, bool loop)
@@ -301,9 +338,10 @@ void buzzer_play_melody(const note_t *melody, uint32_t length, bool loop)
 
 void buzzer_stop_melody(void)
 {
-    k_timer_stop(&melody_timer);
+    k_work_cancel_delayable(&melody_work);
     pwm_set_dt(&buzzer_pwm, 0, 0);
     current_melody = NULL;
+    atomic_clear(&melody_active);
 }
 
 bool buzzer_is_playing(void)
@@ -377,16 +415,12 @@ static int buzzer_init(void)
     LOG_INF("PWM Device: %s", buzzer_pwm.dev->name);
     LOG_INF("PWM Ready: YES");
     LOG_INF("========================================");
-    
-    // Initialize timers once
-    k_timer_init(&melody_timer, melody_timer_callback, NULL);
-    k_timer_init(&advertising_beep_timer, advertising_beep_callback, NULL);
-    
+        
     k_work_queue_start(
         &buzzer_work_q,
         buzzer_stack,
         K_THREAD_STACK_SIZEOF(buzzer_stack),
-        K_PRIO_PREEMPT(5),   // keyscan より低く
+        K_PRIO_PREEMPT(5),
         NULL
     );
 
