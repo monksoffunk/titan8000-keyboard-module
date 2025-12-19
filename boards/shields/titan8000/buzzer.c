@@ -30,6 +30,11 @@ static struct k_timer melody_timer;
 static struct k_timer advertising_beep_timer;
 static bool is_advertising_beep_active = false;
 static bool keypress_beep_enabled = false;
+static struct k_work_delayable melody_work;
+static bool melody_work_running = false;
+static struct k_work buzzer_work;
+static struct buzzer_request buzzer_req;
+static bool buzzer_busy = false;
 
 /* 0..255 scale (approx exponential decay) */
 static const uint8_t decay_lut[] = {
@@ -211,6 +216,20 @@ static void buzzer_voice_ad(
     buzzer_beep_ad(pwm, freq_hz, attack_ms, decay_ms);
 }
 
+/* worker functions */
+static void buzzer_work_handler(struct k_work *work)
+{
+    buzzer_busy = true;
+
+    buzzer_req.voice(
+        &buzzer_pwm,
+        buzzer_req.freq_hz,
+        buzzer_req.duration_ms
+    );
+
+    buzzer_busy = false;
+}
+
 static void melody_timer_callback(struct k_timer *timer)
 {
     if (current_index >= melody_length) {
@@ -225,14 +244,14 @@ static void melody_timer_callback(struct k_timer *timer)
     const note_t *note = &current_melody[current_index++];
 
     if (note->freq == NOTE_REST) {
-        pwm_set_dt(&buzzer_pwm, 0, 0);
-        k_timer_start(&melody_timer, K_MSEC(note->duration), K_NO_WAIT);
-        return;
+        pwm_set_dt(&buzzer_pwm, 0, 0);                    // off
+    } else {
+        uint32_t period_ns = 1000000000UL / note->freq;
+        pwm_set_dt(&buzzer_pwm, period_ns, period_ns / 2); // plain beep
     }
 
-    current_voice(&buzzer_pwm, note->freq, note->duration);
-
-    k_timer_start(&melody_timer, K_NO_WAIT, K_NO_WAIT);
+    /* schedule next note after duration */
+    k_timer_start(&melody_timer, K_MSEC(note->duration), K_NO_WAIT);
 }
 
 void buzzer_play_melody_ex(
@@ -341,6 +360,8 @@ static int buzzer_init(void)
     k_timer_init(&melody_timer, melody_timer_callback, NULL);
     k_timer_init(&advertising_beep_timer, advertising_beep_callback, NULL);
     
+    k_work_init(&buzzer_work, buzzer_work_handler);
+
     buzzer_play_melody(success, ARRAY_SIZE(success), false);
 
     return 0;
@@ -360,10 +381,12 @@ static int buzzer_keypress_listener(const zmk_event_t *eh)
         LOG_INF("KEY PRESSED at position %d", ev->position);
     //    buzzer_beep(4000, 50);  // 4kHz, 50ms
     //    buzzer_pitch_fall();
-        buzzer_beep_ad(&buzzer_pwm,
-               4000,   // 3kHz
-               10,     // Attack 10ms
-               60);    // Decay 60ms
+        if (!buzzer_busy) {
+            buzzer_req.voice = buzzer_voice_ad;
+            buzzer_req.freq_hz = 4000;
+            buzzer_req.duration_ms = 70;
+            k_work_submit(&buzzer_work);
+        }
     }
 
     return ZMK_EV_EVENT_BUBBLE;
