@@ -52,43 +52,43 @@ static const uint8_t decay_lut[] = {
 
 // BLE profile change melody (ascending tones)
 const note_t ble_profile_change[] = {
-    {NOTE_C6, 170},
-//    {NOTE_E6, 140},
-//    {NOTE_G6, 170}
+    {NOTE_C7, 170},
+    {NOTE_E7, 140},
+    {NOTE_G7, 170}
 };
 
 // BLE bond clear melody (descending tones)
 const note_t ble_bond_clear[] = {
-    {NOTE_G6, 80},
-    {NOTE_E6, 80},
-    {NOTE_C6, 120}
+    {NOTE_G7, 80},
+    {NOTE_E7, 80},
+    {NOTE_C7, 120}
 };
 
 // BLE all bonds clear melody (warning sound)
 const note_t ble_all_bonds_clear[] = {
-    {NOTE_A6, 100},
+    {NOTE_A7, 100},
     {NOTE_REST, 50},
-    {NOTE_A6, 100},
+    {NOTE_A7, 100},
     {NOTE_REST, 50},
-    {NOTE_A6, 150}
+    {NOTE_A7, 150}
 };
 
 // BLE disconnect melody (short beep)
 const note_t ble_disconnect[] = {
-    {NOTE_E6, 100},
+    {NOTE_E7, 100},
     {NOTE_REST, 50},
-    {NOTE_C6, 100}
+    {NOTE_C7, 100}
 };
 
 // BLE advertising beep (repeating pip-pip)
 const note_t ble_advertising_beep[] = {
-    {NOTE_G6, 150},
+    {NOTE_G7, 150},
     {NOTE_REST, 50},
-    {NOTE_G6, 150}
+    {NOTE_G7, 150}
 };
 
 const note_t success[] = {
-    {NOTE_E6, 80}, {NOTE_B6, 80}, {NOTE_E7, 400},
+    {NOTE_E7, 80}, {NOTE_B7, 80}, {NOTE_E8, 400},
 };
 
 const note_t warning[] = {
