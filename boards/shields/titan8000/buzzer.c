@@ -30,7 +30,6 @@ static struct k_timer melody_timer;
 static struct k_timer advertising_beep_timer;
 static bool is_advertising_beep_active = false;
 static bool keypress_beep_enabled = false;
-static buzzer_voice_fn_t current_voice = buzzer_voice_plain;
 
 // BLE profile change melody (ascending tones)
 const note_t ble_profile_change[] = {
@@ -107,6 +106,8 @@ static void buzzer_voice_plain(
     k_msleep(duration_ms);
     pwm_set_dt(pwm, 0, 0);
 }
+
+static buzzer_voice_fn_t current_voice = buzzer_voice_plain;
 
 static void buzzer_fall_quadratic_hz(
     const struct pwm_dt_spec *pwm,
