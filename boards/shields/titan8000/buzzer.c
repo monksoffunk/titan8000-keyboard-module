@@ -239,12 +239,22 @@ static void buzzer_work_handler(struct k_work *work)
 
 static void melody_work_handler(struct k_work *work)
 {
+    /* Acquire PWM ownership */ 
+    if (!atomic_cas(&buzzer_busy, 0, 1)) {
+        /* Another beep is in-flight; reschedule a little later */
+        k_work_schedule_for_queue(&buzzer_work_q, &melody_work, K_MSEC(5));
+        return;                           
+    }                                     
+
     if (!current_melody || melody_length == 0) {
         atomic_clear(&melody_active);
+        atomic_clear(&buzzer_busy);       
         return;
     }
 
     while (current_melody) {
+        if (atomic_get(&buzzer_abort)) break;
+
         if (current_index >= melody_length) {
             if (melody_loop) {
                 current_index = 0;
@@ -267,6 +277,8 @@ static void melody_work_handler(struct k_work *work)
     pwm_set_dt(&buzzer_pwm, 0, 0);
     atomic_clear(&melody_active);
     current_melody = NULL;
+    atomic_clear(&buzzer_busy);           
+    atomic_clear(&buzzer_abort);
 }
 
 static bool buzzer_request(
