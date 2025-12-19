@@ -37,6 +37,10 @@ static struct k_work buzzer_work;
 static struct buzzer_request buzzer_req;
 static atomic_t buzzer_busy = false;
 
+K_THREAD_STACK_DEFINE(buzzer_stack, 1024);
+static struct k_work_q buzzer_work_q;
+static struct k_work buzzer_work;
+
 /* 0..255 scale (approx exponential decay) */
 static const uint8_t decay_lut[] = {
     255, 220, 190, 165, 142, 122, 104,  88,
@@ -244,7 +248,7 @@ static bool buzzer_request(
     buzzer_req.freq_hz     = freq_hz;
     buzzer_req.duration_ms = duration_ms;
 
-    k_work_submit(&buzzer_work);
+    k_work_submit_to_queue(&buzzer_work_q, &buzzer_work);
     return true;
 }
 
@@ -378,6 +382,14 @@ static int buzzer_init(void)
     k_timer_init(&melody_timer, melody_timer_callback, NULL);
     k_timer_init(&advertising_beep_timer, advertising_beep_callback, NULL);
     
+    k_work_queue_start(
+        &buzzer_work_q,
+        buzzer_stack,
+        K_THREAD_STACK_SIZEOF(buzzer_stack),
+        K_PRIO_PREEMPT(5),   // keyscan より低く
+        NULL
+    );
+
     k_work_init(&buzzer_work, buzzer_work_handler);
 
     buzzer_play_melody(success, ARRAY_SIZE(success), false);
