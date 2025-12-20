@@ -37,6 +37,7 @@ static struct buzzer_request buzzer_req;
 static atomic_t buzzer_busy;
 static atomic_t melody_active;
 static atomic_t buzzer_abort;
+static atomic_t buzzer_enabled = ATOMIC_INIT(1);
 
 K_THREAD_STACK_DEFINE(buzzer_stack, 1024);
 static struct k_work_q buzzer_work_q;
@@ -121,6 +122,7 @@ static void buzzer_voice_plain(
 
 static buzzer_voice_fn_t current_voice = buzzer_voice_plain;
 
+/*
 static void buzzer_fall_quadratic_hz(
     const struct pwm_dt_spec *pwm,
     uint32_t f_start_hz,
@@ -151,7 +153,6 @@ static void buzzer_fall_quadratic_hz(
     pwm_set_dt(pwm, 0, 0);
 }
 
-/*
 static void buzzer_voice_fall(
     const struct pwm_dt_spec *pwm,
     uint32_t freq_hz,
@@ -342,6 +343,10 @@ static bool buzzer_request(
     if (atomic_get(&melody_active))
         return false;
 
+    if (!atomic_get(&buzzer_enabled)) {
+        return false;
+    }
+
     atomic_set(&buzzer_abort, 1);
     pwm_set_dt(&buzzer_pwm,0, 0);
 
@@ -364,6 +369,10 @@ void buzzer_play_melody_ex(
 )
 {
     buzzer_stop_melody();
+
+    if (!atomic_get(&buzzer_enabled)) {
+        return;
+    }
 
     current_melody = melody;
     melody_length = length;
@@ -407,7 +416,7 @@ void buzzer_toggle_keypress_beep(void)
     }
 }
 
-void buzzer_pitch_fall() 
+static void buzzer_pitch_fall() 
 {
     buzzer_fall_quadratic_hz(&buzzer_pwm, 4000, 3000, 50);
 }
@@ -528,5 +537,18 @@ static int buzzer_ble_profile_listener(const zmk_event_t *eh)
 
 ZMK_LISTENER(buzzer_ble, buzzer_ble_profile_listener);
 ZMK_SUBSCRIPTION(buzzer_ble, zmk_ble_active_profile_changed);
+
+void buzzer_toggle_enable(void)
+{
+    if (atomic_get(&buzzer_enabled)) {
+        atomic_clear(&buzzer_enabled);
+        pwm_set_dt(&buzzer_pwm, 0, 0);
+        atomic_set(&buzzer_abort, 1);
+        LOG_INF("Buzzer muted");
+    } else {
+        atomic_set(&buzzer_enabled, 1);
+        LOG_INF("Buzzer enabled");
+    }
+}
 
 #endif /* CONFIG_TITAN8000_BUZZER */
