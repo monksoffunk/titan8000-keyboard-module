@@ -19,8 +19,8 @@
 #define L_ALT			&mt LALT LANG2
 #define R_ALT			&mt RALT LANG1
 #define MO_BT2			&mo BT2_LAYER
-#define BUZ_KEYP_TOG	&buzzer TOG_KEYPRESS_BUZZER
-#define BUZ_TOG			&buzzer TOG_ALL_BUZZER
+#define BUZ_KEYP_TOG	&buzz TOG_KEYPRESS_BUZZER
+#define BUZ_TOG			&buzz TOG_ALL_BUZZER
 
 &lt {
     quick-tap-ms = <200>;

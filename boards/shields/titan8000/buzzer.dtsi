@@ -7,7 +7,7 @@
 
 / {
     behaviors {
-        /omit-if-no-ref/ buzzer: buzzer {
+        /omit-if-no-ref/ buzz: buzzer {
             compatible = "zmk,behavior-buzzer";
             #binding-cells = <1>;
         };
