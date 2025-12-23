@@ -1,0 +1,15 @@
+/*
+ * Copyright (c) 2025 The ZMK Contributors
+ * Copyright (c) 2025 monksoffunk
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+/*
+ * RP2040 uses the Titan8000 custom kscan driver (inverted scan):
+ * - drive selected pin ACTIVE (expected LOW via GPIO_ACTIVE_LOW)
+ * - read all other pins as inputs with pull-ups
+ */
+&kscan0 {
+    discharge-before-inputs-us = <5>;
+};

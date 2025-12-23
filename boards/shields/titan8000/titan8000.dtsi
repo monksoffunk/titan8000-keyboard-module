@@ -3,23 +3,28 @@
 
 / {
 	kscan0: kscan {
-		compatible = "zmk,kscan-gpio-charlieplex";
-		wakeup-source;
-		
-		interrupt-gpios = <&xiao_d 10 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN) >;
+		compatible = "titan8000,kscan-gpio-charlieplex";
 
 		status = "okay";
-        gpios
-          = <&xiao_d 0 GPIO_ACTIVE_HIGH>
-		  , <&xiao_d 1 GPIO_ACTIVE_HIGH>
-          , <&xiao_d 2 GPIO_ACTIVE_HIGH>
-          , <&xiao_d 3 GPIO_ACTIVE_HIGH>
-		  , <&xiao_d 4 GPIO_ACTIVE_HIGH>
-		  , <&xiao_d 5 GPIO_ACTIVE_HIGH>
-		  , <&xiao_d 6 GPIO_ACTIVE_HIGH>
-		  , <&xiao_d 7 GPIO_ACTIVE_HIGH>
-		  , <&xiao_d 8 GPIO_ACTIVE_HIGH>
-		  , <&xiao_d 9 GPIO_ACTIVE_HIGH>;
+
+    	gpios
+      	= <&xiao_d 0 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+      	, <&xiao_d 1 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+      	, <&xiao_d 2 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+    	, <&xiao_d 3 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+      	, <&xiao_d 4 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+      	, <&xiao_d 5 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+      	, <&xiao_d 6 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+      	, <&xiao_d 7 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+      	, <&xiao_d 8 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
+      	, <&xiao_d 9 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+
+		/*
+		 * Board-specific overlays/dtsi provide:
+		 * - compatible
+		 * - interrupt-gpios
+		 * - debounce/poll tuning
+		 */
 	};
 
 	default_transform: keymap_transform_0 {
@@ -34,49 +39,4 @@
 			RC(0,4) RC(1,4) RC(2,4) RC(3,4) RC(5,4) RC(6,4) RC(7,4) RC(8,4) RC(9,4) RC(6,8) RC(7,8) RC(9,8)
 	>;
 	};
-
-	buzzers {
-        compatible = "pwm-leds"; // use pwm-leds for general pwm device
-        buzzer_channel: buzzer {
-            pwms = <&pwm0 0 0 PWM_POLARITY_NORMAL>;
-        };
-    };
-};
-
-&gpio0 {
-    charge_current_ctrl: charge-current-ctrl {
-        gpios = <13 GPIO_ACTIVE_LOW>;			// GPIO0 13 is active-low for fast charge mode (100mA)
-        output-high;							// set normal charge mode (non-fast charge mode (50mA))
-		gpio-hog;
-    };
-};
-
-&spi1 {
-    status = "disabled";
-};
-
-&xiao_i2c {
-    status = "disabled";
-};
-
-&pwm0 {
-    status = "okay";
-    pinctrl-0 = <&pwm0_default>;
-    pinctrl-1 = <&pwm0_sleep>;
-    pinctrl-names = "default", "sleep";
-};
-
-&pinctrl {
-    // Other pinctrl definitions for other hardware
-    pwm0_default: pwm0_default {
-        group1 {
-            psels = <NRF_PSEL(PWM_OUT0, 1, 7)>;    // port 1, pin 07
-        };
-    };
-    pwm0_sleep: pwm0_sleep {
-        group1 {
-            psels = <NRF_PSEL(PWM_OUT0, 1, 7)>;
-            low-power-enable;
-        };
-    };
 };
