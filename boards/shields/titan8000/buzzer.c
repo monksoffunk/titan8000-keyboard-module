@@ -28,6 +28,7 @@ LOG_MODULE_REGISTER(buzzer, CONFIG_ZMK_LOG_LEVEL);
 struct buzzer_state {
     struct pwm_dt_spec pwm;
 
+    struct k_work_delayable boot_adv_check_work;
     struct k_work_q work_q;
     struct k_work work, melody_work;
     struct k_timer adv_timer;
@@ -52,9 +53,30 @@ enum buzzer_state_bits {
     BUZZER_ENABLED = 0,
     BUZZER_BUSY,
     BUZZER_ABORT,
+    BUZZER_INTERRUPT_PENDING,
 };
 
+typedef enum {
+    BLE_ADVERTISING = 0,
+    BLE_CONNECTED,
+    BLE_NON_CONNECTED,
+} profile_status_t;
+
 K_THREAD_STACK_DEFINE(buzzer_stack, 1024);
+
+static profile_status_t get_ble_active_status(void) {
+    profile_status_t state;
+
+    if (zmk_ble_active_profile_is_connected()) {
+        state = BLE_CONNECTED;
+    } else if (zmk_ble_active_profile_is_open()) {
+        state = BLE_ADVERTISING;
+    } else {
+        state = BLE_NON_CONNECTED;
+    }
+
+    return state;
+}
 
 /* 0..255 scale (approx exponential decay) */
 static const uint8_t decay_lut[] = {
@@ -62,7 +84,6 @@ static const uint8_t decay_lut[] = {
      74,  62,  52,  43,  35,  28,  22,  17,
      13,   9,   6,   4,   2,   1,   0,
 };
-
 
 struct buzzer_melody_request {
     sys_snode_t node;
@@ -73,7 +94,7 @@ struct buzzer_melody_request {
 };
 
 // BUZZER_MELODY_QUEUE_LEN SHOULD BE <= 32
-#define BUZZER_MELODY_QUEUE_LEN 8
+#define BUZZER_MELODY_QUEUE_LEN 16
 
 static struct buzzer_melody_request melody_pool[BUZZER_MELODY_QUEUE_LEN];
 static atomic_t melody_pool_bitmap;
@@ -81,17 +102,22 @@ static atomic_t melody_pool_bitmap;
 K_FIFO_DEFINE(buzzer_melody_fifo);
 
 
-// BLE profile change melody (descending tones)
+// BLE profile change melody
 static const note_t ble_profile_change[] = {
     {NOTE_G7, 140}, 
     {NOTE_E7, 140}, 
     {NOTE_C7, 140},
 };
 
-// BLE bond clear melody (ascending tones)
+// BLE bond clear melody
 static const note_t ble_bond_clear[] = {
     {NOTE_C7, 140}, 
     {NOTE_G7, 140},
+};
+
+// BLE disconnect melody
+static const note_t ble_disconnect[] = {
+    {NOTE_C7, 140}, 
 };
 
 // BLE advertising beep (repeating pip-pip)
@@ -101,10 +127,16 @@ static const note_t ble_advertising_beep[] = {
     {NOTE_G7, 150},
 };
 
-static const note_t success[] = {
-    {NOTE_E7, 140}, 
-    {NOTE_B7, 140}, 
-    {NOTE_E8, 400},
+static const note_t start[] = {
+    {NOTE_REST, 50}, 
+    {NOTE_D6, 140},
+    {NOTE_REST, 100}, 
+    {NOTE_G6, 140}, 
+    {NOTE_REST, 100}, 
+    {NOTE_B6, 140}, 
+    {NOTE_REST, 100}, 
+    {NOTE_C7, 140},
+    {NOTE_REST, 100}, 
 };
 
 static const note_t soft_off[] = {
@@ -312,13 +344,18 @@ static void buzzer_voice_ad(
 /* worker functions */
 static void buzzer_work_handler(struct k_work *work)
 {
+//    if (atomic_test_and_set_bit(&buzzer.state, BUZZER_BUSY)) {
+//        return;
+//    }
+    atomic_clear_bit(&buzzer.state, BUZZER_INTERRUPT_PENDING);
+    
     buzzer.req.voice(
         &buzzer.pwm,
         buzzer.req.freq_hz,
         buzzer.req.duration_ms
     );
 
-    atomic_clear_bit(&buzzer.state, BUZZER_BUSY);
+//    atomic_clear_bit(&buzzer.state, BUZZER_BUSY);
     if (!k_fifo_is_empty(&buzzer_melody_fifo)) {
         k_work_submit_to_queue(&buzzer.work_q, &buzzer.melody_work);
     }
@@ -343,6 +380,7 @@ static bool buzzer_request(
     buzzer.req.duration_ms = duration_ms;
 
     k_work_submit_to_queue(&buzzer.work_q, &buzzer.work);
+    atomic_set_bit(&buzzer.state, BUZZER_INTERRUPT_PENDING);
     return true;
 }
 
@@ -391,15 +429,18 @@ bool buzzer_melody_request(
 }
 
 static void melody_work_handler(struct k_work *work) {
+    static struct buzzer_melody_request *req = NULL;
+    static uint32_t i = 0;
 
-    if (atomic_test_and_set_bit(&buzzer.state, BUZZER_BUSY)) {
-        return;
-    }
+//    if (atomic_test_and_set_bit(&buzzer.state, BUZZER_BUSY)) {
+//        return;
+//    }
 
     while (1) {
-        struct buzzer_melody_request *req =
-            k_fifo_get(&buzzer_melody_fifo, K_NO_WAIT);
-
+        if (!req) {
+            req = k_fifo_get(&buzzer_melody_fifo, K_NO_WAIT);
+            i = 0;
+        }
         if (!req) {
             break;
         }
@@ -408,7 +449,14 @@ static void melody_work_handler(struct k_work *work) {
         uint32_t len = req->length;
         buzzer_voice_fn_t voice = req->voice;
 
-        for (uint32_t i = 0; i < len; i++) {
+        for (; i < len; i++) {
+            if (atomic_test_and_clear_bit(&buzzer.state, BUZZER_INTERRUPT_PENDING)) {
+            //    atomic_clear_bit(&buzzer.state, BUZZER_BUSY);
+              //  atomic_clear_bit(&buzzer.state, BUZZER_INTERRUPT_PENDING);
+                k_work_submit_to_queue(&buzzer.work_q, &buzzer.melody_work);
+                return;
+            }
+
             const note_t *note = &melody[i];
 
             if (note->freq == NOTE_REST) {
@@ -420,6 +468,7 @@ static void melody_work_handler(struct k_work *work) {
         }
         pwm_set_dt(&buzzer.pwm, 0, 0);
         free_melody_req(req);
+        req = NULL;
     }
 
     atomic_clear_bit(&buzzer.state, BUZZER_BUSY);
@@ -446,11 +495,10 @@ bool buzzer_is_keypress_enabled(void)
 
 static void advertising_beep_callback(struct k_timer *timer)
 {
-    if (!zmk_ble_active_profile_is_connected()) {
-        // Not connected, play advertising beep
+    if (get_ble_active_status() == BLE_ADVERTISING) {
         BUZZER_MELODY_REQ(ble_advertising_beep);
     } else {
-        // Connected, stop advertising beep
+        // Connected or trying to connect, stop advertising beep
         buzzer.adv_active = false;
         k_timer_stop(&(buzzer.adv_timer));
     }
@@ -480,6 +528,19 @@ static struct buzzer_state buzzer = {
     .voice = buzzer_voice_plain,
 };
 
+static void boot_adv_check_handler(struct k_work *work) {
+    const int status = get_ble_active_status();
+    switch (status) {
+        case BLE_ADVERTISING:
+            start_advertising_beep();
+            break;
+        case BLE_NON_CONNECTED:
+        case BLE_CONNECTED:
+        default:
+            break;
+    }
+}
+
 static int buzzer_init(void)
 {
     LOG_INF("========================================");
@@ -504,7 +565,10 @@ static int buzzer_init(void)
     k_work_init(&buzzer.melody_work, melody_work_handler);
     k_timer_init(&buzzer.adv_timer, advertising_beep_callback, NULL);
 
-    BUZZER_MELODY_REQ(success);
+    BUZZER_MELODY_REQ(start);
+
+    k_work_init_delayable(&buzzer.boot_adv_check_work, boot_adv_check_handler);
+    k_work_schedule(&buzzer.boot_adv_check_work, K_SECONDS(1));    
 
     return 0;
 }
@@ -539,21 +603,23 @@ static int buzzer_ble_profile_listener(const zmk_event_t *eh)
 
     LOG_INF("BLE Profile changed to: %d", ev->index);
     
-    // Check if the profile is open (no bond) - likely a clear operation
-    if (zmk_ble_profile_is_open(ev->index)) {
-        LOG_INF("Profile is open (cleared)");
-        BUZZER_MELODY_REQ(ble_bond_clear);
-        // Start advertising beep after clearing
-        start_advertising_beep();
-    } else {
-        LOG_INF("Profile switched");
-        BUZZER_MELODY_REQ(ble_profile_change);
-        // Check if connected, if not start advertising beep
-        if (!zmk_ble_active_profile_is_connected()) {
+    const int status = get_ble_active_status();
+
+    switch (status) {
+        case BLE_ADVERTISING:
+            BUZZER_MELODY_REQ(ble_bond_clear);
             start_advertising_beep();
-        } else {
+            break;
+        case BLE_CONNECTED:
+            BUZZER_MELODY_REQ(ble_profile_change);
             stop_advertising_beep();
-        }
+            break;
+        case BLE_NON_CONNECTED:
+            BUZZER_MELODY_REQ(ble_disconnect);
+            stop_advertising_beep();
+            break;
+        default:
+            break;
     }
 
     return ZMK_EV_EVENT_BUBBLE;
