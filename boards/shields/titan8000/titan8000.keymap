@@ -100,9 +100,9 @@
 				&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none			&none				&none			&none			&none
 				&none		&none		&none		&none		&none		&none		&none												&none		&none		&none					&none			&none
 			>;
-        };
+		};
 
-        EXTRA2_LAYER {
+		EXTRA2_LAYER {
 			display-name = "Extra2";
 			bindings = <
 				&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none			&none			&none
@@ -111,6 +111,6 @@
 				&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none			&none				&none			&none			&none
 				&none		&none		&none		&none		&none		&none		&none												&none		&none		&none					&none			&none
 			>;
-        };
+		};
 	};
 };
