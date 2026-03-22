@@ -92,11 +92,25 @@
 		};
 
 		EXTRA1_LAYER {
-            status = "reserved";
+			display-name = "Extra1"; 
+			bindings = <
+				&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none			&none			&none
+				&none		&none		&none  		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none			&none			&none
+				&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none					&none			&none			&none
+				&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none			&none				&none			&none			&none
+				&none		&none		&none		&none		&none		&none		&none												&none		&none		&none					&none			&none
+			>;
         };
 
         EXTRA2_LAYER {
-            status = "reserved";
+			display-name = "Extra2";
+			bindings = <
+				&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none			&none			&none
+				&none		&none		&none  		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none			&none			&none
+				&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none					&none			&none			&none
+				&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none			&none				&none			&none			&none
+				&none		&none		&none		&none		&none		&none		&none												&none		&none		&none					&none			&none
+			>;
         };
 	};
 };
