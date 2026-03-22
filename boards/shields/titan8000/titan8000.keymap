@@ -92,7 +92,7 @@
 		};
 
 		EXTRA1_LAYER {
-			display-name = "Extra1"; 
+			display-name = "Extra1";
 			bindings = <
 				&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none			&none			&none
 				&none		&none		&none  		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none		&none			&none			&none
