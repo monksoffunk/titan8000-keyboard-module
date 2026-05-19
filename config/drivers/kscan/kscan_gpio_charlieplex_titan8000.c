@@ -49,6 +49,18 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #define INST_DISCHARGE_US(n) DT_INST_PROP_OR(n, discharge_before_inputs_us, 0)
 
+#ifdef CONFIG_TITAN8000_KSCAN_WAIT_BEFORE_INPUTS_US
+#define TITAN8000_KSCAN_WAIT_BEFORE_INPUTS_US CONFIG_TITAN8000_KSCAN_WAIT_BEFORE_INPUTS_US
+#else
+#define TITAN8000_KSCAN_WAIT_BEFORE_INPUTS_US 0
+#endif
+
+#ifdef CONFIG_TITAN8000_KSCAN_WAIT_BETWEEN_OUTPUTS_US
+#define TITAN8000_KSCAN_WAIT_BETWEEN_OUTPUTS_US CONFIG_TITAN8000_KSCAN_WAIT_BETWEEN_OUTPUTS_US
+#else
+#define TITAN8000_KSCAN_WAIT_BETWEEN_OUTPUTS_US 0
+#endif
+
 /* Match ZMK v0.3-branch upstream: LISTIFY() expects fn(idx, inst_idx). */
 #define KSCAN_GPIO_CFG_INIT(idx, inst_idx)                                                         \
     GPIO_DT_SPEC_GET_BY_IDX(DT_DRV_INST(inst_idx), gpios, idx)
@@ -330,19 +342,20 @@ static int kscan_charlieplex_read(const struct device *dev) {
      */
     for (int col = 0; col < config->cells.len; col++) {
         if (config->discharge_before_inputs_us > 0) {
-            // /* Drive all pins active (LOW) briefly to discharge floating capacitances. */
-            // err = kscan_charlieplex_set_all_outputs(dev, 1);
-            // if (err) {
-            //     return err;
-            // }
+            /* Drive all pins active (LOW) briefly to discharge floating capacitances. */
+            err = kscan_charlieplex_set_all_outputs(dev, 1);
+            if (err) {
+                return err;
+            }
 
-            // k_busy_wait(config->discharge_before_inputs_us);
+          //  k_busy_wait(config->discharge_before_inputs_us);
 
             err = kscan_charlieplex_set_all_as_input(dev);
             if (err) {
                 return err;
             }
-            k_busy_wait(config->discharge_before_inputs_us);
+          //  k_busy_wait(config->discharge_before_inputs_us);
+
         }
 
         const struct gpio_dt_spec *out_gpio = &config->cells.gpios[col];
@@ -351,8 +364,8 @@ static int kscan_charlieplex_read(const struct device *dev) {
             return err;
         }
 
-#if CONFIG_ZMK_KSCAN_CHARLIEPLEX_WAIT_BEFORE_INPUTS > 0
-        k_busy_wait(CONFIG_ZMK_KSCAN_CHARLIEPLEX_WAIT_BEFORE_INPUTS);
+#if TITAN8000_KSCAN_WAIT_BEFORE_INPUTS_US > 0
+        k_busy_wait(TITAN8000_KSCAN_WAIT_BEFORE_INPUTS_US);
 #endif
 
         for (int row = 0; row < config->cells.len; row++) {
@@ -388,8 +401,8 @@ static int kscan_charlieplex_read(const struct device *dev) {
             return err;
         }
 
-#if CONFIG_ZMK_KSCAN_CHARLIEPLEX_WAIT_BETWEEN_OUTPUTS > 0
-        k_busy_wait(CONFIG_ZMK_KSCAN_CHARLIEPLEX_WAIT_BETWEEN_OUTPUTS);
+#if TITAN8000_KSCAN_WAIT_BETWEEN_OUTPUTS_US > 0
+        k_busy_wait(TITAN8000_KSCAN_WAIT_BETWEEN_OUTPUTS_US);
 #endif
     }
 
