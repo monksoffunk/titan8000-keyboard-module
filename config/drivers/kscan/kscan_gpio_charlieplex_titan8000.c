@@ -330,18 +330,19 @@ static int kscan_charlieplex_read(const struct device *dev) {
      */
     for (int col = 0; col < config->cells.len; col++) {
         if (config->discharge_before_inputs_us > 0) {
-            /* Drive all pins active (LOW) briefly to discharge floating capacitances. */
-            err = kscan_charlieplex_set_all_outputs(dev, 1);
-            if (err) {
-                return err;
-            }
+            // /* Drive all pins active (LOW) briefly to discharge floating capacitances. */
+            // err = kscan_charlieplex_set_all_outputs(dev, 1);
+            // if (err) {
+            //     return err;
+            // }
 
-            k_busy_wait(config->discharge_before_inputs_us);
+            // k_busy_wait(config->discharge_before_inputs_us);
 
             err = kscan_charlieplex_set_all_as_input(dev);
             if (err) {
                 return err;
             }
+            k_busy_wait(config->discharge_before_inputs_us);
         }
 
         const struct gpio_dt_spec *out_gpio = &config->cells.gpios[col];
