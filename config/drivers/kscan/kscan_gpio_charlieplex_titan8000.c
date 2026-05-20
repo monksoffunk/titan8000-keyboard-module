@@ -491,32 +491,49 @@ static void kscan_charlieplex_setup_pins(const struct device *dev) {
 }
 
 #if IS_ENABLED(CONFIG_PM_DEVICE)
-#include <zephyr/sys/printk.h> // added
-
 static int kscan_charlieplex_pm_action(const struct device *dev, enum pm_device_action action) {
-    LOG_ERR("pm_action action=%d wake=%d", action, pm_device_wakeup_is_enabled(dev)); // changedLOG_ERR("pm_action action=%d wake=%d", action, pm_device_wakeup_is_enabled(dev)); // changed
-
-        printk("kscan_charlieplex_pm_action: action=%d wake=%d\n",               // added
-           action, pm_device_wakeup_is_enabled(dev));    
     switch (action) {
-    case PM_DEVICE_ACTION_SUSPEND:
-        k_work_cancel_delayable(&((struct kscan_charlieplex_data *)dev->data)->work);           // added: stop scan work deterministically
-        (void)kscan_charlieplex_set_all_as_input(dev);                                           // added: release any output drive before poweroff
-        (void)kscan_charlieplex_interrupt_line_input_pulldown(dev);                              // added: ensure IRQ line is in input+pull state
+    case PM_DEVICE_ACTION_SUSPEND: {
+        int err;
 
-        if (pm_device_wakeup_is_enabled(dev)) {                                                  // added: prepare wake for System OFF here
-            (void)kscan_charlieplex_interrupt_configure(dev, GPIO_INT_LEVEL_ACTIVE);             // added: arm wake (sense/level) before sys_poweroff
-        } else {
-            (void)kscan_charlieplex_interrupt_configure(dev, GPIO_INT_DISABLE);                  // changed: keep explicit disable for non-wake suspend
+        if (pm_device_wakeup_is_enabled(dev)) {
+            /*
+             * For soft-off wake path, keep IRQ armed as level-active instead of disabling
+             * it via kscan_charlieplex_disable().
+             */
+            struct kscan_charlieplex_data *data = dev->data;
+            k_work_cancel_delayable(&data->work);
+
+            err = kscan_charlieplex_set_all_as_input(dev);
+            if (err) {
+                return err;
+            }
+
+            err = kscan_charlieplex_interrupt_line_input_pulldown(dev);
+            if (err) {
+                return err;
+            }
+
+            err = kscan_charlieplex_interrupt_configure(dev, GPIO_INT_LEVEL_ACTIVE);
+            if (err) {
+                return err;
+            }
+
+            return kscan_charlieplex_disconnect_all(dev);
         }
 
-        (void)kscan_charlieplex_disconnect_all(dev);                                             // moved/kept: cells can be disconnected for low power
-        return 0; 
-        
-        kscan_charlieplex_interrupt_configure(dev, GPIO_INT_DISABLE);
-        kscan_charlieplex_disconnect_all(dev);
+        err = kscan_charlieplex_interrupt_configure(dev, GPIO_INT_DISABLE);
+        if (err) {
+            return err;
+        }
+
+        err = kscan_charlieplex_disconnect_all(dev);
+        if (err) {
+            return err;
+        }
 
         return kscan_charlieplex_disable(dev);
+    }
     case PM_DEVICE_ACTION_RESUME:
         kscan_charlieplex_setup_pins(dev);
 
