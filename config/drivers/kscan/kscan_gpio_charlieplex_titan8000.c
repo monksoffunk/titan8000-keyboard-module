@@ -84,6 +84,10 @@ struct kscan_charlieplex_data {
     struct k_work_delayable work;
     int64_t scan_time; /* Timestamp of the current or scheduled scan. */
     struct gpio_callback irq_callback;
+#if IS_ENABLED(CONFIG_TITAN8000_KSCAN_DEBUG_SCAN_RATE)
+    uint32_t debug_scan_counter;
+    int64_t debug_scan_window_start_ms;
+#endif
     /**
      * Current state of the matrix as a flattened 2D array of length
      * (config->cells.length ^2)
@@ -322,10 +326,38 @@ static void kscan_charlieplex_read_end(const struct device *dev) {
     }
 }
 
+#if IS_ENABLED(CONFIG_TITAN8000_KSCAN_DEBUG_SCAN_RATE)
+static void kscan_charlieplex_debug_scan_rate(struct kscan_charlieplex_data *data) {
+    const int64_t now = k_uptime_get();
+
+    if (data->debug_scan_window_start_ms == 0) {
+        data->debug_scan_window_start_ms = now;
+    }
+
+    data->debug_scan_counter++;
+
+    const int64_t elapsed_ms = now - data->debug_scan_window_start_ms;
+    if (elapsed_ms >= CONFIG_TITAN8000_KSCAN_DEBUG_SCAN_RATE_INTERVAL_MS) {
+        const uint32_t scan_rate_hz =
+            (uint32_t)((data->debug_scan_counter * 1000LL) / elapsed_ms);
+
+        LOG_INF("kscan scan_rate=%uHz scans=%u window=%lldms", scan_rate_hz,
+                data->debug_scan_counter, (long long)elapsed_ms);
+
+        data->debug_scan_counter = 0;
+        data->debug_scan_window_start_ms = now;
+    }
+}
+#endif
+
 static int kscan_charlieplex_read(const struct device *dev) {
     struct kscan_charlieplex_data *data = dev->data;
     const struct kscan_charlieplex_config *config = dev->config;
     bool continue_scan = false;
+
+#if IS_ENABLED(CONFIG_TITAN8000_KSCAN_DEBUG_SCAN_RATE)
+    kscan_charlieplex_debug_scan_rate(data);
+#endif
 
     /*
      * RR vs MATRIX: set all pins as input, in case there was a failure on a
@@ -571,6 +603,11 @@ static int kscan_charlieplex_init(const struct device *dev) {
     struct kscan_charlieplex_data *data = dev->data;
 
     data->dev = dev;
+
+#if IS_ENABLED(CONFIG_TITAN8000_KSCAN_DEBUG_SCAN_RATE)
+    data->debug_scan_counter = 0;
+    data->debug_scan_window_start_ms = 0;
+#endif
 
     k_work_init_delayable(&data->work, kscan_charlieplex_work_handler);
 

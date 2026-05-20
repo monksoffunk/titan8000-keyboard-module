@@ -29,4 +29,21 @@ config TITAN8000_KSCAN_WAIT_BETWEEN_OUTPUTS_US
         Delay inserted after finishing one output scan and before moving
         to the next output in the Titan8000 custom charlieplex kscan driver.
 
+config TITAN8000_KSCAN_DEBUG_SCAN_RATE
+    bool "Log Titan8000 kscan scan rate"
+    default n
+    depends on TITAN8000_KSCAN_GPIO_CHARLIEPLEX && LOG
+    help
+        Periodically logs the effective scan rate (Hz) from the Titan8000
+        custom charlieplex kscan driver.
+
+config TITAN8000_KSCAN_DEBUG_SCAN_RATE_INTERVAL_MS
+    int "Scan rate logging interval (ms)"
+    default 1000
+    range 100 60000
+    depends on TITAN8000_KSCAN_DEBUG_SCAN_RATE
+    help
+        Time window for scan-rate logging. The driver reports scans per second
+        averaged over this interval.
+
 endif # KSCAN
