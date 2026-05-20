@@ -8,6 +8,12 @@
 
 		status = "okay";
 
+		/*
+		 * Driver note:
+		 * kscan_gpio_charlieplex_titan8000.c currently assumes ACTIVE_LOW scan direction.
+		 * ACTIVE_HIGH matrix gpios require row/col inversion handling in the driver, which
+		 * is not implemented yet.
+		 */
     	gpios
       	= <&xiao_d 0 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>
       	, <&xiao_d 1 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>

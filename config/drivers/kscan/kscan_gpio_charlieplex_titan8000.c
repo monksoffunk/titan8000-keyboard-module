@@ -339,25 +339,14 @@ static int kscan_charlieplex_read(const struct device *dev) {
     /*
      * Inverted scan (custom): choose one C (column) pin, drive it ACTIVE (expected LOW via
      * GPIO_ACTIVE_LOW), read all other pins as inputs w/ pull-ups.
+     *
+     * NOTE:
+     * This implementation is tuned for ACTIVE_LOW matrix GPIOs. If matrix GPIOs are changed to
+     * ACTIVE_HIGH, detected keys become transposed because the effective scan direction flips.
+     * Supporting ACTIVE_HIGH requires explicit row/col inversion in state indexing and event
+     * reporting. That inversion path is not implemented yet.
      */
     for (int col = 0; col < config->cells.len; col++) {
-        if (config->discharge_before_inputs_us > 0) {
-            /* Drive all pins active (LOW) briefly to discharge floating capacitances. */
-            err = kscan_charlieplex_set_all_outputs(dev, 1);
-            if (err) {
-                return err;
-            }
-
-          //  k_busy_wait(config->discharge_before_inputs_us);
-
-            err = kscan_charlieplex_set_all_as_input(dev);
-            if (err) {
-                return err;
-            }
-          //  k_busy_wait(config->discharge_before_inputs_us);
-
-        }
-
         const struct gpio_dt_spec *out_gpio = &config->cells.gpios[col];
         err = kscan_charlieplex_set_as_output(out_gpio);
         if (err) {
