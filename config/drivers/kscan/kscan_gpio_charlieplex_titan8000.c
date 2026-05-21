@@ -74,6 +74,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #define USES_INTERRUPT DT_INST_FOREACH_STATUS_OKAY(WITH_INTR) > 0
 
 #define COND_ANY_POLLING(code) COND_CODE_1(USES_POLLING, code, ())
+#define COND_THIS_POLLING(n, code) COND_CODE_0(INST_INTR_DEFINED(n), code, ())
 #define COND_THIS_INTERRUPT(n, code) COND_CODE_1(INST_INTR_DEFINED(n), code, ())
 
 #define KSCAN_INTR_CFG_INIT(inst_idx) GPIO_DT_SPEC_GET(DT_DRV_INST(inst_idx), interrupt_gpios)
@@ -524,11 +525,13 @@ static void kscan_charlieplex_setup_pins(const struct device *dev) {
 
 #if IS_ENABLED(CONFIG_PM_DEVICE)
 static int kscan_charlieplex_pm_action(const struct device *dev, enum pm_device_action action) {
+    const struct kscan_charlieplex_config *config = dev->config;
+
     switch (action) {
     case PM_DEVICE_ACTION_SUSPEND: {
         int err;
 
-        if (pm_device_wakeup_is_enabled(dev)) {
+        if (config->use_interrupt && pm_device_wakeup_is_enabled(dev)) {
             /*
              * For soft-off wake path, keep IRQ armed as level-active instead of disabling
              * it via kscan_charlieplex_disable().
@@ -554,9 +557,11 @@ static int kscan_charlieplex_pm_action(const struct device *dev, enum pm_device_
             return kscan_charlieplex_disconnect_all(dev);
         }
 
-        err = kscan_charlieplex_interrupt_configure(dev, GPIO_INT_DISABLE);
-        if (err) {
-            return err;
+        if (config->use_interrupt) {
+            err = kscan_charlieplex_interrupt_configure(dev, GPIO_INT_DISABLE);
+            if (err) {
+                return err;
+            }
         }
 
         err = kscan_charlieplex_disconnect_all(dev);
@@ -575,7 +580,7 @@ static int kscan_charlieplex_pm_action(const struct device *dev, enum pm_device_
          * wake interrupt immediately (without starting a scan cycle) so the device can
          * wake the system from soft off.
          */
-        if (pm_device_wakeup_is_enabled(dev)) {
+        if (config->use_interrupt && pm_device_wakeup_is_enabled(dev)) {
             return kscan_charlieplex_interrupt_enable(dev);
         }
 
@@ -648,7 +653,7 @@ static int kscan_charlieplex_init(const struct device *dev) {
                 .debounce_release_ms = INST_DEBOUNCE_RELEASE_MS(n),                                 \
             },                                                                                      \
         .debounce_scan_period_ms = DT_INST_PROP(n, debounce_scan_period_ms),                        \
-        COND_ANY_POLLING((.poll_period_ms = DT_INST_PROP(n, poll_period_ms), ))                     \
+        COND_THIS_POLLING(n, (.poll_period_ms = DT_INST_PROP(n, poll_period_ms), ))                  \
             COND_THIS_INTERRUPT(n, (.use_interrupt = INST_INTR_DEFINED(n), ))                       \
                 COND_THIS_INTERRUPT(n, (.interrupt = KSCAN_INTR_CFG_INIT(n), ))                     \
         .discharge_before_inputs_us = INST_DISCHARGE_US(n),                                         \
