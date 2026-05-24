@@ -653,7 +653,7 @@ static int kscan_charlieplex_init(const struct device *dev) {
                 .debounce_release_ms = INST_DEBOUNCE_RELEASE_MS(n),                                 \
             },                                                                                      \
         .debounce_scan_period_ms = DT_INST_PROP(n, debounce_scan_period_ms),                        \
-        COND_THIS_POLLING(n, (.poll_period_ms = DT_INST_PROP(n, poll_period_ms), ))                  \
+        COND_ANY_POLLING((.poll_period_ms = DT_INST_PROP(n, poll_period_ms), ))                     \
             COND_THIS_INTERRUPT(n, (.use_interrupt = INST_INTR_DEFINED(n), ))                       \
                 COND_THIS_INTERRUPT(n, (.interrupt = KSCAN_INTR_CFG_INIT(n), ))                     \
         .discharge_before_inputs_us = INST_DISCHARGE_US(n),                                         \
