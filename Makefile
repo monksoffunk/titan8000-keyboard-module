@@ -20,6 +20,14 @@ WEST     := $(VENV_DIR)/bin/west
 # Ensure subprocesses spawned by west/cmake/ninja resolve python tools from venv first.
 export PATH := $(abspath $(VENV_DIR))/bin:$(PATH)
 
+# Keep macOS builds on the same external GNU Arm Embedded toolchain path as
+# the Linux build, instead of Zephyr SDK's arm-zephyr-eabi/picolibc path.
+ARM_NONE_EABI_GCC := $(shell command -v arm-none-eabi-gcc 2>/dev/null)
+CROSS_COMPILE ?= $(patsubst %gcc,%,$(ARM_NONE_EABI_GCC))
+ZEPHYR_TOOLCHAIN_VARIANT ?= cross-compile
+export CROSS_COMPILE
+export ZEPHYR_TOOLCHAIN_VARIANT
+
 WEST_MANIFEST_DIR     := config
 ZEPHYR_BASE_REQ       := zephyr/scripts/requirements-base.txt
 ZEPHYR_EXTRAS_REQ     := zephyr/scripts/requirements-extras.txt
@@ -28,7 +36,11 @@ ZEPHYR_DEPS_STAMP     := $(VENV_DIR)/.zephyr_deps_installed
 ZEPHYR_EXTRAS_STAMP   := $(VENV_DIR)/.zephyr_extras_installed
 NANOPB_PROTOC_WRAPPER := $(abspath tools/protoc_python_wrapper.sh)
 EXTRA_CMAKE_ARGS      ?=
-CMAKE_ARGS            := -DSHIELD=titan8000 -DPROTOBUF_PROTOC_EXECUTABLE=$(NANOPB_PROTOC_WRAPPER) $(EXTRA_CMAKE_ARGS)
+CMAKE_ARGS            := -DSHIELD=titan8000 \
+                         -DZEPHYR_TOOLCHAIN_VARIANT=$(ZEPHYR_TOOLCHAIN_VARIANT) \
+                         -DCROSS_COMPILE=$(CROSS_COMPILE) \
+                         -DPROTOBUF_PROTOC_EXECUTABLE=$(NANOPB_PROTOC_WRAPPER) \
+                         $(EXTRA_CMAKE_ARGS)
 
 all	: setup $(TARGET1) $(TARGET2) 
 
@@ -42,7 +54,11 @@ deps: venv
 	@$(PIP) install -r requirements.txt
 	@$(PIP) install -U west
 
-$(WEST_STAMP): deps
+toolchain-check:
+	@test -n "$(CROSS_COMPILE)" || (echo "arm-none-eabi-gcc not found. Install GNU Arm Embedded toolchain or set CROSS_COMPILE=/path/to/arm-none-eabi-"; exit 1)
+	@$(CROSS_COMPILE)gcc --version | head -n 1
+
+$(WEST_STAMP): deps toolchain-check
 	@test -d .west || $(WEST) init -l $(WEST_MANIFEST_DIR)
 	@$(WEST) update
 	@touch $(WEST_STAMP)
@@ -58,7 +74,7 @@ $(ZEPHYR_EXTRAS_STAMP): $(ZEPHYR_DEPS_STAMP)
 	@$(PIP) install -r $(ZEPHYR_EXTRAS_REQ)
 	@touch $(ZEPHYR_EXTRAS_STAMP)
 
-setup: zephyr-export $(ZEPHYR_DEPS_STAMP)
+setup: toolchain-check zephyr-export $(ZEPHYR_DEPS_STAMP)
 
 setup-studio: setup $(ZEPHYR_EXTRAS_STAMP)
 
@@ -71,21 +87,23 @@ shell: venv
 venv-clean:
 	@rm -rf $(VENV_DIR)
 
-$(TARGET1):
+$(TARGET1): FORCE
 	$(WEST) build -s zmk/app -b seeeduino_xiao_ble -d build/titan8000 -S studio-rpc-usb-uart -p always -- $(CMAKE_ARGS)
 	mv $(DEFAULT_TARGET) $(TARGET1)
 
-$(TARGET2):
+$(TARGET2): FORCE
 	$(WEST) build -s zmk/app -b seeeduino_xiao_rp2040 -d build/titan8000  -S studio-rpc-usb-uart -p always -- $(CMAKE_ARGS)
 	mv $(DEFAULT_TARGET) $(TARGET2)
 
-$(DEBUG_TARGET1):
+$(DEBUG_TARGET1): FORCE
 	$(WEST) build -s zmk/app -b seeeduino_xiao_ble -d build/titan8000 -S zmk-usb-logging -p always -- $(CMAKE_ARGS)
 	mv $(DEFAULT_TARGET) $(DEBUG_TARGET1)	
 
-$(DEBUG_TARGET2):
+$(DEBUG_TARGET2): FORCE
 	$(WEST) build -s zmk/app -b seeeduino_xiao_rp2040 -d build/titan8000  -S zmk-usb-logging -p always -- $(CMAKE_ARGS)
 	mv $(DEFAULT_TARGET) $(DEBUG_TARGET2)
+
+FORCE:
 
 clean:
 	@rm -rf build
@@ -97,4 +115,4 @@ fclean: clean
 
 re: fclean all
 
-.PHONY: all re clean fclean venv venv-clean deps zephyr-export setup setup-studio pip-list shell
+.PHONY: all re clean fclean venv venv-clean deps zephyr-export setup setup-studio pip-list shell toolchain-check FORCE
