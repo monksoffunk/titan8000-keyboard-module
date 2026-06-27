@@ -49,6 +49,18 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #define INST_DISCHARGE_US(n) DT_INST_PROP_OR(n, discharge_before_inputs_us, 0)
 
+#ifdef CONFIG_TITAN8000_KSCAN_WAIT_BEFORE_INPUTS_US
+#define TITAN8000_KSCAN_WAIT_BEFORE_INPUTS_US CONFIG_TITAN8000_KSCAN_WAIT_BEFORE_INPUTS_US
+#else
+#define TITAN8000_KSCAN_WAIT_BEFORE_INPUTS_US 0
+#endif
+
+#ifdef CONFIG_TITAN8000_KSCAN_WAIT_BETWEEN_OUTPUTS_US
+#define TITAN8000_KSCAN_WAIT_BETWEEN_OUTPUTS_US CONFIG_TITAN8000_KSCAN_WAIT_BETWEEN_OUTPUTS_US
+#else
+#define TITAN8000_KSCAN_WAIT_BETWEEN_OUTPUTS_US 0
+#endif
+
 /* Match ZMK v0.3-branch upstream: LISTIFY() expects fn(idx, inst_idx). */
 #define KSCAN_GPIO_CFG_INIT(idx, inst_idx)                                                         \
     GPIO_DT_SPEC_GET_BY_IDX(DT_DRV_INST(inst_idx), gpios, idx)
@@ -62,6 +74,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #define USES_INTERRUPT DT_INST_FOREACH_STATUS_OKAY(WITH_INTR) > 0
 
 #define COND_ANY_POLLING(code) COND_CODE_1(USES_POLLING, code, ())
+#define COND_THIS_POLLING(n, code) COND_CODE_0(INST_INTR_DEFINED(n), code, ())
 #define COND_THIS_INTERRUPT(n, code) COND_CODE_1(INST_INTR_DEFINED(n), code, ())
 
 #define KSCAN_INTR_CFG_INIT(inst_idx) GPIO_DT_SPEC_GET(DT_DRV_INST(inst_idx), interrupt_gpios)
@@ -72,6 +85,10 @@ struct kscan_charlieplex_data {
     struct k_work_delayable work;
     int64_t scan_time; /* Timestamp of the current or scheduled scan. */
     struct gpio_callback irq_callback;
+#if IS_ENABLED(CONFIG_TITAN8000_KSCAN_DEBUG_SCAN_RATE)
+    uint32_t debug_scan_counter;
+    int64_t debug_scan_window_start_ms;
+#endif
     /**
      * Current state of the matrix as a flattened 2D array of length
      * (config->cells.length ^2)
@@ -310,10 +327,38 @@ static void kscan_charlieplex_read_end(const struct device *dev) {
     }
 }
 
+#if IS_ENABLED(CONFIG_TITAN8000_KSCAN_DEBUG_SCAN_RATE)
+static void kscan_charlieplex_debug_scan_rate(struct kscan_charlieplex_data *data) {
+    const int64_t now = k_uptime_get();
+
+    if (data->debug_scan_window_start_ms == 0) {
+        data->debug_scan_window_start_ms = now;
+    }
+
+    data->debug_scan_counter++;
+
+    const int64_t elapsed_ms = now - data->debug_scan_window_start_ms;
+    if (elapsed_ms >= CONFIG_TITAN8000_KSCAN_DEBUG_SCAN_RATE_INTERVAL_MS) {
+        const uint32_t scan_rate_hz =
+            (uint32_t)((data->debug_scan_counter * 1000LL) / elapsed_ms);
+
+        LOG_INF("kscan scan_rate=%uHz scans=%u window=%lldms", scan_rate_hz,
+                data->debug_scan_counter, (long long)elapsed_ms);
+
+        data->debug_scan_counter = 0;
+        data->debug_scan_window_start_ms = now;
+    }
+}
+#endif
+
 static int kscan_charlieplex_read(const struct device *dev) {
     struct kscan_charlieplex_data *data = dev->data;
     const struct kscan_charlieplex_config *config = dev->config;
     bool continue_scan = false;
+
+#if IS_ENABLED(CONFIG_TITAN8000_KSCAN_DEBUG_SCAN_RATE)
+    kscan_charlieplex_debug_scan_rate(data);
+#endif
 
     /*
      * RR vs MATRIX: set all pins as input, in case there was a failure on a
@@ -327,31 +372,22 @@ static int kscan_charlieplex_read(const struct device *dev) {
     /*
      * Inverted scan (custom): choose one C (column) pin, drive it ACTIVE (expected LOW via
      * GPIO_ACTIVE_LOW), read all other pins as inputs w/ pull-ups.
+     *
+     * NOTE:
+     * This implementation is tuned for ACTIVE_LOW matrix GPIOs. If matrix GPIOs are changed to
+     * ACTIVE_HIGH, detected keys become transposed because the effective scan direction flips.
+     * Supporting ACTIVE_HIGH requires explicit row/col inversion in state indexing and event
+     * reporting. That inversion path is not implemented yet.
      */
     for (int col = 0; col < config->cells.len; col++) {
-        if (config->discharge_before_inputs_us > 0) {
-            /* Drive all pins active (LOW) briefly to discharge floating capacitances. */
-            err = kscan_charlieplex_set_all_outputs(dev, 1);
-            if (err) {
-                return err;
-            }
-
-            k_busy_wait(config->discharge_before_inputs_us);
-
-            err = kscan_charlieplex_set_all_as_input(dev);
-            if (err) {
-                return err;
-            }
-        }
-
         const struct gpio_dt_spec *out_gpio = &config->cells.gpios[col];
         err = kscan_charlieplex_set_as_output(out_gpio);
         if (err) {
             return err;
         }
 
-#if CONFIG_ZMK_KSCAN_CHARLIEPLEX_WAIT_BEFORE_INPUTS > 0
-        k_busy_wait(CONFIG_ZMK_KSCAN_CHARLIEPLEX_WAIT_BEFORE_INPUTS);
+#if TITAN8000_KSCAN_WAIT_BEFORE_INPUTS_US > 0
+        k_busy_wait(TITAN8000_KSCAN_WAIT_BEFORE_INPUTS_US);
 #endif
 
         for (int row = 0; row < config->cells.len; row++) {
@@ -387,8 +423,8 @@ static int kscan_charlieplex_read(const struct device *dev) {
             return err;
         }
 
-#if CONFIG_ZMK_KSCAN_CHARLIEPLEX_WAIT_BETWEEN_OUTPUTS > 0
-        k_busy_wait(CONFIG_ZMK_KSCAN_CHARLIEPLEX_WAIT_BETWEEN_OUTPUTS);
+#if TITAN8000_KSCAN_WAIT_BETWEEN_OUTPUTS_US > 0
+        k_busy_wait(TITAN8000_KSCAN_WAIT_BETWEEN_OUTPUTS_US);
 #endif
     }
 
@@ -488,32 +524,53 @@ static void kscan_charlieplex_setup_pins(const struct device *dev) {
 }
 
 #if IS_ENABLED(CONFIG_PM_DEVICE)
-#include <zephyr/sys/printk.h> // added
-
 static int kscan_charlieplex_pm_action(const struct device *dev, enum pm_device_action action) {
-    LOG_ERR("pm_action action=%d wake=%d", action, pm_device_wakeup_is_enabled(dev)); // changedLOG_ERR("pm_action action=%d wake=%d", action, pm_device_wakeup_is_enabled(dev)); // changed
+    const struct kscan_charlieplex_config *config = dev->config;
 
-        printk("kscan_charlieplex_pm_action: action=%d wake=%d\n",               // added
-           action, pm_device_wakeup_is_enabled(dev));    
     switch (action) {
-    case PM_DEVICE_ACTION_SUSPEND:
-        k_work_cancel_delayable(&((struct kscan_charlieplex_data *)dev->data)->work);           // added: stop scan work deterministically
-        (void)kscan_charlieplex_set_all_as_input(dev);                                           // added: release any output drive before poweroff
-        (void)kscan_charlieplex_interrupt_line_input_pulldown(dev);                              // added: ensure IRQ line is in input+pull state
+    case PM_DEVICE_ACTION_SUSPEND: {
+        int err;
 
-        if (pm_device_wakeup_is_enabled(dev)) {                                                  // added: prepare wake for System OFF here
-            (void)kscan_charlieplex_interrupt_configure(dev, GPIO_INT_LEVEL_ACTIVE);             // added: arm wake (sense/level) before sys_poweroff
-        } else {
-            (void)kscan_charlieplex_interrupt_configure(dev, GPIO_INT_DISABLE);                  // changed: keep explicit disable for non-wake suspend
+        if (config->use_interrupt && pm_device_wakeup_is_enabled(dev)) {
+            /*
+             * For soft-off wake path, keep IRQ armed as level-active instead of disabling
+             * it via kscan_charlieplex_disable().
+             */
+            struct kscan_charlieplex_data *data = dev->data;
+            k_work_cancel_delayable(&data->work);
+
+            err = kscan_charlieplex_set_all_as_input(dev);
+            if (err) {
+                return err;
+            }
+
+            err = kscan_charlieplex_interrupt_line_input_pulldown(dev);
+            if (err) {
+                return err;
+            }
+
+            err = kscan_charlieplex_interrupt_configure(dev, GPIO_INT_LEVEL_ACTIVE);
+            if (err) {
+                return err;
+            }
+
+            return kscan_charlieplex_disconnect_all(dev);
         }
 
-        (void)kscan_charlieplex_disconnect_all(dev);                                             // moved/kept: cells can be disconnected for low power
-        return 0; 
-        
-        kscan_charlieplex_interrupt_configure(dev, GPIO_INT_DISABLE);
-        kscan_charlieplex_disconnect_all(dev);
+        if (config->use_interrupt) {
+            err = kscan_charlieplex_interrupt_configure(dev, GPIO_INT_DISABLE);
+            if (err) {
+                return err;
+            }
+        }
+
+        err = kscan_charlieplex_disconnect_all(dev);
+        if (err) {
+            return err;
+        }
 
         return kscan_charlieplex_disable(dev);
+    }
     case PM_DEVICE_ACTION_RESUME:
         kscan_charlieplex_setup_pins(dev);
 
@@ -523,7 +580,7 @@ static int kscan_charlieplex_pm_action(const struct device *dev, enum pm_device_
          * wake interrupt immediately (without starting a scan cycle) so the device can
          * wake the system from soft off.
          */
-        if (pm_device_wakeup_is_enabled(dev)) {
+        if (config->use_interrupt && pm_device_wakeup_is_enabled(dev)) {
             return kscan_charlieplex_interrupt_enable(dev);
         }
 
@@ -551,6 +608,11 @@ static int kscan_charlieplex_init(const struct device *dev) {
     struct kscan_charlieplex_data *data = dev->data;
 
     data->dev = dev;
+
+#if IS_ENABLED(CONFIG_TITAN8000_KSCAN_DEBUG_SCAN_RATE)
+    data->debug_scan_counter = 0;
+    data->debug_scan_window_start_ms = 0;
+#endif
 
     k_work_init_delayable(&data->work, kscan_charlieplex_work_handler);
 
@@ -591,7 +653,7 @@ static int kscan_charlieplex_init(const struct device *dev) {
                 .debounce_release_ms = INST_DEBOUNCE_RELEASE_MS(n),                                 \
             },                                                                                      \
         .debounce_scan_period_ms = DT_INST_PROP(n, debounce_scan_period_ms),                        \
-        COND_ANY_POLLING((.poll_period_ms = DT_INST_PROP(n, poll_period_ms), ))                     \
+        COND_THIS_POLLING(n, (.poll_period_ms = DT_INST_PROP(n, poll_period_ms), ))                  \
             COND_THIS_INTERRUPT(n, (.use_interrupt = INST_INTR_DEFINED(n), ))                       \
                 COND_THIS_INTERRUPT(n, (.interrupt = KSCAN_INTR_CFG_INIT(n), ))                     \
         .discharge_before_inputs_us = INST_DISCHARGE_US(n),                                         \

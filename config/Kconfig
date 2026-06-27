@@ -13,4 +13,37 @@ config TITAN8000_KSCAN_GPIO_CHARLIEPLEX
     default $(dt_compat_enabled,$(DT_COMPAT_TITAN8000_KSCAN_GPIO_CHARLIEPLEX))
     select ZMK_KSCAN_GPIO_DRIVER
 
+config TITAN8000_KSCAN_WAIT_BEFORE_INPUTS_US
+    int "Microseconds to wait before reading inputs in Titan8000 charlieplex scan"
+    default 0
+    depends on TITAN8000_KSCAN_GPIO_CHARLIEPLEX
+    help
+        Delay inserted after driving one output active and before sampling
+        input pins in the Titan8000 custom charlieplex kscan driver.
+
+config TITAN8000_KSCAN_WAIT_BETWEEN_OUTPUTS_US
+    int "Microseconds to wait between outputs in Titan8000 charlieplex scan"
+    default 0
+    depends on TITAN8000_KSCAN_GPIO_CHARLIEPLEX
+    help
+        Delay inserted after finishing one output scan and before moving
+        to the next output in the Titan8000 custom charlieplex kscan driver.
+
+config TITAN8000_KSCAN_DEBUG_SCAN_RATE
+    bool "Log Titan8000 kscan scan rate"
+    default n
+    depends on TITAN8000_KSCAN_GPIO_CHARLIEPLEX && LOG
+    help
+        Periodically logs the effective scan rate (Hz) from the Titan8000
+        custom charlieplex kscan driver.
+
+config TITAN8000_KSCAN_DEBUG_SCAN_RATE_INTERVAL_MS
+    int "Scan rate logging interval (ms)"
+    default 1000
+    range 100 60000
+    depends on TITAN8000_KSCAN_DEBUG_SCAN_RATE
+    help
+        Time window for scan-rate logging. The driver reports scans per second
+        averaged over this interval.
+
 endif # KSCAN

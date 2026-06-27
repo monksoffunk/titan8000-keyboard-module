@@ -10,6 +10,3 @@
  * - drive selected pin ACTIVE (expected LOW via GPIO_ACTIVE_LOW)
  * - read all other pins as inputs with pull-ups
  */
-&kscan0 {
-    discharge-before-inputs-us = <5>;
-};
